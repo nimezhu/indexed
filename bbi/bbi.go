@@ -13,7 +13,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-/* revised by Xiaopeng Zhu
+
+/*　add support to io.ReadSeeker interface by Xiaopeng Zhu
+ *
  */
 package bigwig
 
