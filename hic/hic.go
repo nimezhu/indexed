@@ -102,7 +102,7 @@ func (e *HiC) loadBodyIndex(key string) (*Body, error) { //loadBodyIndex if it i
 		c2 <- b
 	}()
 	b0 := <-c2
-	return &b0, nil
+	return &b0, err
 }
 
 //Entrys list of chr_chr entrys in hic file
