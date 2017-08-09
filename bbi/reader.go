@@ -41,7 +41,7 @@ func (bwf *BbiReader) QueryRaw(idx, from, to int) <-chan *BbiBlockDecoderType { 
 		traverser := NewRTreeTraverser(&bwf.Index)
 		defer close(ch)
 		for r := range traverser.QueryVertices(idx, from, to) {
-			block, err := r.Vertex.ReadBlockX7(bwf, r.Idx)
+			block, err := r.Vertex.ReadBlockFromReader(bwf, r.Idx)
 			if err != nil {
 				log.Panic(err)
 				return
@@ -104,7 +104,7 @@ func (bwf *BbiReader) queryRaw(channel chan *BbiQueryType, idx, from, to, binsiz
 		var result *BbiQueryType
 		bwf.mutex.Lock()
 		for r := range traverser.QueryVertices(idx, from, to) {
-			block, err := r.Vertex.ReadBlockX7(bwf, r.Idx)
+			block, err := r.Vertex.ReadBlockFromReader(bwf, r.Idx)
 			if err != nil {
 				channel <- &BbiQueryType{Error: err}
 				return
@@ -172,7 +172,7 @@ func (bwf *BbiReader) queryZoom(channel chan *BbiQueryType, zoomIdx, idx, from, 
 		var result *BbiQueryType
 
 		for r := range traverser.QueryVertices(idx, from, to) {
-			block, err := r.Vertex.ReadBlockX7(bwf, r.Idx)
+			block, err := r.Vertex.ReadBlockFromReader(bwf, r.Idx)
 			if err != nil {
 				channel <- &BbiQueryType{Error: err}
 				return
@@ -212,7 +212,7 @@ func (bwf *BbiReader) queryZoom(channel chan *BbiQueryType, zoomIdx, idx, from, 
 	<-c
 }
 
-func (vertex *RVertex) ReadBlockX7(bwf *BbiReader, i int) ([]byte, error) { //should be inner function for lock
+func (vertex *RVertex) ReadBlockFromReader(bwf *BbiReader, i int) ([]byte, error) { //should be inner function for lock
 	var err error
 	block := make([]byte, vertex.Sizes[i])
 	if err = readseekerReadAt(bwf.Fptr, binary.LittleEndian, int64(vertex.DataOffset[i]), &block); err != nil {

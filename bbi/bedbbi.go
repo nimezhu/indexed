@@ -116,7 +116,7 @@ func (bwf *BbiReader) queryBedRaw(channel chan *BedBbiBlockDecoderType, idx, fro
 	// current zoom record
 
 	for r := range traverser.QueryVertices(idx, from, to) {
-		block, err := r.Vertex.ReadBlockX7(bwf, r.Idx)
+		block, err := r.Vertex.ReadBlockFromReader(bwf, r.Idx)
 		if err != nil {
 			channel <- &BedBbiBlockDecoderType{Error: err}
 			return
