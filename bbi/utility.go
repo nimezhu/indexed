@@ -17,7 +17,7 @@
  * revised by Xiaopeng Zhu
  */
 
-package bigwig
+package bbi
 
 /* -------------------------------------------------------------------------- */
 

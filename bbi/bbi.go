@@ -17,7 +17,7 @@
 /*　add support to io.ReadSeeker interface by Xiaopeng Zhu
  *
  */
-package bigwig
+package bbi
 
 /* -------------------------------------------------------------------------- */
 
