@@ -2,7 +2,6 @@ package indexed
 
 import (
 	"encoding/binary"
-	"log"
 
 	"github.com/nimezhu/netio"
 )
@@ -18,7 +17,6 @@ func Magic(uri string) (string, error) {
 	}
 	p := make([]byte, 4)
 	f.Read(p)
-	log.Println(p)
 	n := binary.LittleEndian.Uint32(p)
 	switch n {
 	case BIGBED_MAGIC:
