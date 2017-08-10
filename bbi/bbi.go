@@ -42,8 +42,6 @@ import "math"
 
 import "io"
 
-import "os"
-
 /* -------------------------------------------------------------------------- */
 
 const CIRTREE_MAGIC = 0x78ca8c91
@@ -1253,21 +1251,8 @@ type RVertex struct {
 	PtrSizes      []int64
 }
 
-func (vertex *RVertex) ReadBlock(bwf *BbiFile, i int) ([]byte, error) {
-	var err error
-	block := make([]byte, vertex.Sizes[i])
-	if err = fileReadAt(bwf.Fptr, binary.LittleEndian, int64(vertex.DataOffset[i]), &block); err != nil {
-		return nil, err
-	}
-	if bwf.Header.UncompressBufSize != 0 {
-		if block, err = uncompressSlice(block); err != nil {
-			return nil, err
-		}
-	}
-	return block, nil
-}
-
-func (vertex *RVertex) WriteBlock(bwf *BbiFile, i int, block []byte) error {
+/* TODO MV BbiFile to BbiWriteSeeker
+func (vertex *RVertex) WriteBlock(bwf *BbiWriteSeeker, i int, block []byte) error {
 	var err error
 	if bwf.Header.UncompressBufSize != 0 {
 		// update header.UncompressBufSize if block length
@@ -1308,7 +1293,7 @@ func (vertex *RVertex) WriteBlock(bwf *BbiFile, i int, block []byte) error {
 	}
 	return nil
 }
-
+*/
 func (vertex *RVertex) Read(file io.ReadSeeker) error {
 
 	var padding uint8
@@ -1919,14 +1904,6 @@ func (header *BbiHeader) WriteNBlocks(file io.WriteSeeker) error {
 
 /* -------------------------------------------------------------------------- */
 
-type BbiFile struct {
-	Header    BbiHeader
-	ChromData BData
-	Index     RTree
-	IndexZoom []RTree
-	Fptr      *os.File
-}
-
 type BbiQueryType struct {
 	BbiSummaryRecord
 	Error error
@@ -1934,165 +1911,4 @@ type BbiQueryType struct {
 
 func NewBbiQueryType() *BbiQueryType {
 	return &BbiQueryType{NewBbiSummaryRecord(), nil}
-}
-
-func NewBbiFile() *BbiFile {
-	bwf := new(BbiFile)
-	bwf.Header = *NewBbiHeader()
-	bwf.ChromData = *NewBData()
-	return bwf
-}
-
-func (bwf *BbiFile) Close() error {
-	return bwf.Fptr.Close()
-}
-
-/* query interface
- * -------------------------------------------------------------------------- */
-
-func (bwf *BbiFile) queryZoom(channel chan *BbiQueryType, zoomIdx, idx, from, to, binsize int) {
-	traverser := NewRTreeTraverser(&bwf.IndexZoom[zoomIdx])
-	// current zoom record
-	var result *BbiQueryType
-
-	for r := range traverser.QueryVertices(idx, from, to) {
-		block, err := r.Vertex.ReadBlock(bwf, r.Idx)
-		if err != nil {
-			channel <- &BbiQueryType{Error: err}
-			return
-		}
-		decoder := NewBbiZoomBlockDecoder(block)
-
-		for record := range decoder.Decode() {
-			if record.From < from || record.To > to {
-				continue
-			}
-			if (record.To-record.From) < binsize || binsize%(record.To-record.From) == 0 {
-				// check if current result record is full
-				if result == nil || (result.To-result.From) >= binsize {
-					if result != nil {
-						channel <- result
-					}
-					result = NewBbiQueryType()
-					result.ChromId = idx
-					result.From = record.From
-				}
-				// add contents of current record to the resulting record
-				result.AddRecord(record.BbiSummaryRecord)
-				result.To = record.To
-			} else {
-				channel <- &BbiQueryType{Error: fmt.Errorf("invalid binsize")}
-				return
-			}
-		}
-	}
-	if result != nil {
-		channel <- result
-	}
-}
-
-func (bwf *BbiFile) queryRaw(channel chan *BbiQueryType, idx, from, to, binsize int) {
-	// no zoom level found, try raw data
-	traverser := NewRTreeTraverser(&bwf.Index)
-	// current zoom record
-	var result *BbiQueryType
-
-	for r := range traverser.QueryVertices(idx, from, to) {
-		block, err := r.Vertex.ReadBlock(bwf, r.Idx)
-		if err != nil {
-			channel <- &BbiQueryType{Error: err}
-			return
-		}
-		decoder, err := NewBbiBlockDecoder(block)
-		if err != nil {
-			channel <- &BbiQueryType{Error: err}
-			return
-		}
-		for record := range decoder.Decode() {
-			if record.From < from || record.To > to {
-				continue
-			}
-			if binsize%(record.To-record.From) == 0 {
-				// check if current result record is full
-				if result == nil || (result.To-result.From) >= binsize {
-					if result != nil {
-						channel <- result
-					}
-					result = NewBbiQueryType()
-					result.ChromId = idx
-					result.From = record.From
-				}
-				// add contents of current record to the resulting record
-				result.AddValue(record.Value)
-				result.To = record.To
-			} else {
-				channel <- &BbiQueryType{Error: fmt.Errorf("invalid binsize")}
-				return
-			}
-		}
-	}
-	if result != nil {
-		channel <- result
-	}
-}
-func (bwf *BbiFile) queryRawType(channel chan *BbiBlockDecoderType, idx, from, to int) {
-	traverser := NewRTreeTraverser(&bwf.Index)
-	// current zoom record
-	//var result *BbiBlockDecoderType
-
-	for r := range traverser.QueryVertices(idx, from, to) {
-		block, err := r.Vertex.ReadBlock(bwf, r.Idx)
-		if err != nil {
-			channel <- &BbiBlockDecoderType{Error: err}
-			return
-		}
-		decoder, err := NewBbiBlockDecoder(block)
-		if err != nil {
-			channel <- &BbiBlockDecoderType{Error: err}
-			return
-		}
-		for record := range decoder.Decode() {
-			if record.From < from || record.To > to {
-				continue
-			} else {
-				channel <- &record
-			}
-
-		}
-	}
-}
-func (bwf *BbiFile) QueryRaw(idx, from, to int) <-chan *BbiBlockDecoderType {
-	channel := make(chan *BbiBlockDecoderType)
-	go func() {
-		bwf.queryRawType(channel, idx, from, to)
-		close(channel)
-	}()
-	return channel
-}
-
-func (bwf *BbiFile) query(channel chan *BbiQueryType, idx, from, to, binsize int) {
-	// index of a matching zoom level for the given binsize
-	zoomIdx := -1
-	for i := 0; i < int(bwf.Header.ZoomLevels); i++ {
-		if binsize >= int(bwf.Header.ZoomHeaders[i].ReductionLevel) &&
-			(binsize%int(bwf.Header.ZoomHeaders[i].ReductionLevel) == 0) {
-			zoomIdx = i
-		}
-	}
-	if zoomIdx != -1 {
-		bwf.queryZoom(channel, zoomIdx, idx, from, to, binsize)
-	} else {
-		bwf.queryRaw(channel, idx, from, to, binsize)
-	}
-}
-
-func (bwf *BbiFile) Query(idx, from, to, binsize int) <-chan *BbiQueryType {
-	from = divIntDown(from, binsize) * binsize
-	to = divIntUp(to, binsize) * binsize
-	channel := make(chan *BbiQueryType)
-	go func() {
-		bwf.query(channel, idx, from, to, binsize)
-		close(channel)
-	}()
-	return channel
 }

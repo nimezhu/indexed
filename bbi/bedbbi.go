@@ -3,6 +3,7 @@ package bbi
 import (
 	"bytes"
 	"fmt"
+	"log"
 
 	"github.com/nimezhu/netio"
 )
@@ -133,4 +134,79 @@ func (bwf *BbiReader) queryBedRaw(channel chan *BedBbiBlockDecoderType, idx, fro
 			channel <- record
 		}
 	}
+}
+
+func (bwf *BbiReader) queryBedBin(channel chan *BedBbiQueryType, idx, from, to, binsize int) {
+	// no zoom level found, try raw data
+	log.Println("in query raw bed")
+	c := make(chan bool, 1)
+	go func() {
+		traverser := NewRTreeTraverser(&bwf.Index)
+		// current zoom record
+		var result *BedBbiQueryType
+		bwf.mutex.Lock()
+		for r := range traverser.QueryVertices(idx, from, to) {
+			block, err := r.Vertex.ReadBlockFromReader(bwf, r.Idx)
+			if err != nil {
+				channel <- &BedBbiQueryType{Error: err}
+				return
+			}
+			decoder, err := NewBedBbiBlockDecoder(block)
+			if err != nil {
+				channel <- &BedBbiQueryType{Error: err}
+				return
+			}
+			for record := range decoder.Decode() {
+				if record.From < from || record.To > to {
+					continue
+				}
+				if (record.To-record.From) < binsize || binsize%(record.To-record.From) == 0 { //TODO  add (record.To-record.From) < binsize || is this correct?
+					// check if current result record is full
+					// fmt.Println(result.Max)
+					//DEBUG
+
+					if result == nil || (result.To-result.From) >= binsize {
+						if result != nil {
+							channel <- result
+						}
+						result = NewBedBbiQueryType()
+						result.ChromId = idx
+						result.From = record.From
+					}
+					// add contents of current record to the resulting record
+					//fmt.Println(record.Value)
+					result.AddValue(1.0)
+					result.To = record.To
+				} else {
+					//TODO
+					//channel <- &BbiQueryType{Error: fmt.Errorf("invalid binsize")}
+					if result != nil {
+						channel <- result
+					}
+					singleRecord := NewBedBbiQueryType()
+					singleRecord.ChromId = idx
+					singleRecord.From = record.From
+					singleRecord.To = record.To
+					singleRecord.AddValue(1.0)
+					channel <- singleRecord
+					result = nil
+					//return not return but skip large binsize data. TODO handle large region data.
+				}
+			}
+		}
+		if result != nil { //no record added. handle.
+			channel <- result
+		}
+		bwf.mutex.Unlock()
+		c <- true
+	}()
+	<-c
+}
+func (bwf *BbiReader) QueryBedBin(idx, from, to, binsize int) <-chan *BedBbiQueryType {
+	channel := make(chan *BedBbiQueryType)
+	go func() {
+		bwf.queryBedBin(channel, idx, from, to, binsize)
+		close(channel)
+	}()
+	return channel
 }

@@ -82,15 +82,16 @@ func testEncode(bwf *BbiReader, filename string) {
 	fmt.Println("begin reading")
 	initLargeBwf(bwf, filename)
 	fmt.Println("done reading in encode rnqseq")
-	//fmt.Println(bwf.Header)
-	//fmt.Println(bwf.ChromData)
-	for i := range bwf.Query(2, 0, 100000, 224) {
-		fmt.Println("result")
-		fmt.Println(i)
-	}
+	/*
+		for i := range bwf.Query(2, 0, 100000, 224) {
+			fmt.Println("result")
+			fmt.Println(i)
+		}
+	*/
 
 }
 
+/*
 func TestBW(t *testing.T) {
 	f, _ := os.Open("test.bw")
 	bwf := NewBbiReader(f)
@@ -98,11 +99,15 @@ func TestBW(t *testing.T) {
 	t.Log("testing local file")
 	testBwf(bwf, "test.bw")
 }
+*/
 
 var bigwigURI = "http://ftp.ebi.ac.uk/pub/databases/ensembl/encode/integration_data_jan2011/byDataType/rna_signal/jan2011/hub/wgEncodeCshlLongRnaSeqA549CellLongnonpolyaMinusRawSigRep1.bigWig"
 var rnaseqURI = "http://genome.compbio.cs.cmu.edu:9000/hg19/bigwig/rnaseq.bw"
 var chipseqURI = "http://genome.compbio.cs.cmu.edu:9000/hg19/bigwig/chipseq.bw"
-var bigbedURI = "http://ftp.ebi.ac.uk/pub/databases/ensembl/encode/integration_data_jan2011/byDataType/segmentations/jan2011/hub/k562.combined.bb"
+
+var bigbedURI = "https://www.encodeproject.org/files/ENCFF334TNK/@@download/ENCFF334TNK.bigBed"
+
+//var bigbedURI = "./ENCFF334TNK.bigBed"
 
 func TestReadSeeker(t *testing.T) {
 	f, _ := NewReadSeeker("http://genome.compbio.cs.cmu.edu:9000/test/bigwig/test.bw")
@@ -119,12 +124,31 @@ func TestEncode(t *testing.T) {
 }
 
 func TestBigBed(t *testing.T) {
-	f, _ := NewHttpReadSeeker(bigbedURI)
-	f.BufferSize(8192)
+	f, _ := NewReadSeeker(bigbedURI)
+	//f.BufferSize(8192)
 	bwf := NewBbiReader(f)
 	bwf.InitIndex()
+	t.Log("bigbed zoom levels", bwf.Header.ZoomLevels)
 	for i := uint16(0); i < bwf.Header.ZoomLevels; i++ {
 		binsize := int(bwf.Header.ZoomHeaders[i].ReductionLevel)
-		t.Log(binsize)
+		t.Log(i, binsize)
 	}
+	bb := NewBigBedReader(bwf)
+	iter, err := bb.QueryRaw("chr1", 1, 1000000)
+	if err != nil {
+		t.Log(err)
+	} else {
+		for i := range iter {
+			t.Log(i)
+		}
+	}
+	iter2, err := bb.QueryBin("chr1", 1, 1000000, 5000)
+	if err != nil {
+		t.Log(err)
+	} else {
+		for i := range iter2 {
+			t.Log(i.From, i.To, i.Valid)
+		}
+	}
+
 }
