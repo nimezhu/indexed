@@ -3,7 +3,6 @@ package bbi
 import (
 	"bytes"
 	"fmt"
-	"log"
 
 	"github.com/nimezhu/netio"
 )
@@ -138,7 +137,6 @@ func (bwf *BbiReader) queryBedRaw(channel chan *BedBbiBlockDecoderType, idx, fro
 
 func (bwf *BbiReader) queryBedBin(channel chan *BedBbiQueryType, idx, from, to, binsize int) {
 	// no zoom level found, try raw data
-	log.Println("in query raw bed")
 	c := make(chan bool, 1)
 	go func() {
 		traverser := NewRTreeTraverser(&bwf.Index)

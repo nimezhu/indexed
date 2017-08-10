@@ -37,7 +37,7 @@ func (bw *BigBedReader) Binsizes() []int {
 	}
 	return binsizes
 }
-func (bw *BigBedReader) getBinsize(length int, width int) int {
+func (bw *BigBedReader) GetBinsize(length int, width int) int {
 	var binsize int
 	if length == 0 {
 		return 1
@@ -75,7 +75,7 @@ func (bw *BigBedReader) Query(chr string, start int, end int, width int) (<-chan
 		log.Printf("chromsome not found")
 		return nil, errors.New("chromosome not found") //TODO get error
 	}
-	binsize := bw.getBinsize(end-start, width)
+	binsize := bw.GetBinsize(end-start, width)
 	return bw.Reader.QueryBedBin(idx, start, end, binsize), nil
 }
 
