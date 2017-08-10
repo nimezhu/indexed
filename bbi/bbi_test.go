@@ -1,4 +1,4 @@
-package bigwig
+package bbi
 
 import (
 	"fmt"
