@@ -235,7 +235,7 @@ func NewBbiBlockDecoder(buffer []byte) (*BbiBlockDecoder, error) {
 	reader.Header.ReadBuffer(buffer)
 	// crop header from buffer
 	reader.Buffer = buffer[24:]
-	fmt.Println("header type", reader.Header.Type)
+	//fmt.Println("header type", reader.Header.Type)
 	//fmt.Println("buffer", reader.Buffer)
 	switch reader.Header.Type {
 	/*

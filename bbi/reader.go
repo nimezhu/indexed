@@ -96,7 +96,7 @@ func (bwf *BbiReader) query(channel chan *BbiQueryType, idx, from, to, binsize i
 
 func (bwf *BbiReader) queryRaw(channel chan *BbiQueryType, idx, from, to, binsize int) {
 	// no zoom level found, try raw data
-	log.Println("in query raw")
+	//log.Println("in query raw")
 	c := make(chan bool, 1)
 	go func() {
 		traverser := NewRTreeTraverser(&bwf.Index)
