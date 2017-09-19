@@ -2,6 +2,8 @@ package indexed
 
 import (
 	"encoding/binary"
+	"os"
+	"path/filepath"
 
 	"github.com/nimezhu/netio"
 )
@@ -11,6 +13,11 @@ const BIGBED_MAGIC = 0x8789F2EB
 const HIC_MAGIC = 0x00434948
 
 func Magic(uri string) (string, error) {
+	if _, err := os.Stat(filepath.Join(filepath.Dir(uri), "images")); err == nil {
+		if _, err := os.Stat(uri + ".tbi"); err == nil {
+			return "image", err
+		}
+	}
 	f, err := netio.NewReadSeeker(uri)
 	if err != nil {
 		return "unknown", err
@@ -25,9 +32,9 @@ func Magic(uri string) (string, error) {
 		return "bigwig", nil
 	case HIC_MAGIC:
 		return "hic", nil
-	default:
-		return "unknown", nil
-
+	}
+	if _, err := os.Stat(uri + ".tbi"); err == nil {
+		return "tabix", err
 	}
 	return "unknown", nil
 }
