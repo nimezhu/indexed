@@ -13,6 +13,7 @@ import (
 
 const BIGWIG_MAGIC = 0x888FFC26
 const BIGBED_MAGIC = 0x8789F2EB
+const TWOBIT_MAGIC = 0x1A412743
 const HIC_MAGIC = 0x00434948
 const BIGSIZE = 100000000 //100Mb is bigbedLarge
 func MagicReadSeeker(f io.ReadSeeker) (string, error) {
@@ -31,6 +32,8 @@ func MagicReadSeeker(f io.ReadSeeker) (string, error) {
 		return "bigwig", nil
 	case HIC_MAGIC:
 		return "hic", nil
+	case TWOBIT_MAGIC:
+		return "twobit", nil
 	}
 	return "unknown", errors.New("unknown format")
 }
@@ -61,6 +64,8 @@ func Magic(uri string) (string, error) {
 		return "bigwig", nil
 	case HIC_MAGIC:
 		return "hic", nil
+	case TWOBIT_MAGIC:
+		return "twobit", nil
 	}
 	if _, err := os.Stat(uri + ".tbi"); err == nil {
 		return "tabix", err
