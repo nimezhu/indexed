@@ -2,6 +2,9 @@ package indexed
 
 import (
 	"encoding/binary"
+	"errors"
+	"io"
+	"log"
 	"os"
 	"path/filepath"
 
@@ -12,7 +15,25 @@ const BIGWIG_MAGIC = 0x888FFC26
 const BIGBED_MAGIC = 0x8789F2EB
 const HIC_MAGIC = 0x00434948
 const BIGSIZE = 100000000 //100Mb is bigbedLarge
-
+func MagicReadSeeker(f io.ReadSeeker) (string, error) {
+	p := make([]byte, 4)
+	f.Seek(0, 0)
+	defer f.Seek(0, 0)
+	l, err := f.Read(p)
+	if err != nil {
+		log.Println(l, err)
+	}
+	n := binary.LittleEndian.Uint32(p)
+	switch n {
+	case BIGBED_MAGIC:
+		return "bigbed", nil
+	case BIGWIG_MAGIC:
+		return "bigwig", nil
+	case HIC_MAGIC:
+		return "hic", nil
+	}
+	return "unknown", errors.New("unknown format")
+}
 func Magic(uri string) (string, error) {
 	if _, err := os.Stat(filepath.Join(filepath.Dir(uri), "images")); err == nil {
 		if _, err := os.Stat(uri + ".tbi"); err == nil {
