@@ -15,12 +15,18 @@ const BIGWIG_MAGIC = 0x888FFC26
 const BIGBED_MAGIC = 0x8789F2EB
 const TWOBIT_MAGIC = 0x1A412743
 const HIC_MAGIC = 0x00434948
+
+var GZIP_MAGIC = []byte("\x1f\x8b")
+
 const BIGSIZE = 100000000 //100Mb is bigbedLarge
 func MagicReadSeeker(f io.ReadSeeker) (string, error) {
 	p := make([]byte, 4)
 	f.Seek(0, 0)
 	defer f.Seek(0, 0)
 	l, err := f.Read(p)
+	if p[0] == GZIP_MAGIC[0] && p[1] == GZIP_MAGIC[1] {
+		return "gzip", nil
+	}
 	if err != nil {
 		log.Println(l, err)
 	}
@@ -43,6 +49,9 @@ func Magic(uri string) (string, error) {
 			return "image", err
 		}
 	}
+	if _, err := os.Stat(uri + ".tbi"); err == nil {
+		return "tabix", err
+	}
 	f, err := netio.NewReadSeeker(uri)
 	if err != nil {
 		return "unknown", err
@@ -51,8 +60,12 @@ func Magic(uri string) (string, error) {
 	if err != nil {
 		return "unknown", err
 	}
+
 	p := make([]byte, 4)
 	f.Read(p)
+	if p[0] == GZIP_MAGIC[0] && p[1] == GZIP_MAGIC[1] {
+		return "gzip", nil
+	}
 	n := binary.LittleEndian.Uint32(p)
 	switch n {
 	case BIGBED_MAGIC:
@@ -67,8 +80,6 @@ func Magic(uri string) (string, error) {
 	case TWOBIT_MAGIC:
 		return "twobit", nil
 	}
-	if _, err := os.Stat(uri + ".tbi"); err == nil {
-		return "tabix", err
-	}
+
 	return "unknown", nil
 }

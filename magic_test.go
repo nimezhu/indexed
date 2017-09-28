@@ -7,4 +7,6 @@ func TestHead(t *testing.T) {
 	t.Log(Magic(fn))
 	fn2 := "http://genome.compbio.cs.cmu.edu:9000/hg19/hic/K562_combined_30.hic"
 	t.Log(Magic(fn2))
+	fn3 := "https://www.encodeproject.org/files/ENCFF493HEJ/@@download/ENCFF493HEJ.bed.gz"
+	t.Log(Magic(fn3))
 }
