@@ -4,11 +4,14 @@ import (
 	//"fmt"
 	//"errors"
 	"errors"
+	"fmt"
 
 	"github.com/gonum/matrix/mat64"
 	//"log"
 	"strconv"
 )
+
+var units = []string{"BP", "FRAG"}
 
 func (e *HiC) queryVector(a bed3, normtype int, unit int, resIdx int) ([]float64, error) {
 	binSize := e.BpRes[resIdx]
@@ -27,8 +30,10 @@ func (e *HiC) queryVector(a bed3, normtype int, unit int, resIdx int) ([]float64
 		values, _ := v.Data()
 		//fmt.Println("vector length", len(values))
 		//fmt.Println("vector", values)
+
 		return values[start:end], nil
 	}
+
 	return nil, errors.New("value not found")
 }
 
@@ -38,10 +43,12 @@ func (e *HiC) QueryOneNormMat(chr string, start int, end int, resIdx int, normty
 func (e *HiC) queryOneNormMat(a bed3, resIdx int, normtype int, unit int) (mat64.Matrix, error) { //TODO check if the matrix is sparse
 	m, err := e._queryOne(a, resIdx)
 	if err != nil {
+		fmt.Println("_queryOne")
 		return nil, err
 	}
 	vec, err := e.queryVector(a, normtype, unit, resIdx)
 	if err != nil {
+		fmt.Println(unit, normtype, "_notFoundVector")
 		return nil, err
 	}
 	r, c := m.Dims()
@@ -93,21 +100,33 @@ func (e *HiC) queryTwoNormMat(a bed3, b bed3, resIdx int, normtype int, unit int
 }
 
 func (e *HiC) queryOneFoldChangeOverExpected(a bed3, normtype int, unit int, resIdx int) (mat64.Matrix, error) {
-	m, err := e.queryOneNormMat(a, normtype, unit, resIdx)
+	m, err := e.queryOneNormMat(a, resIdx, normtype, unit)
 	if err != nil {
+		fmt.Println(a, "error in query one norm mat", err)
 		return nil, err
 	}
 	r, c := m.Dims()
 	chrIdx := e.chr2idx(a.chr)
 	binSize := e.BpRes[resIdx]
-	ekey := strconv.Itoa(unit) + "_" + strconv.Itoa(int(binSize)) + "_" + strconv.Itoa(normtype)
-	expt := e.Footer.ExpectedValueMap[ekey]
-	newM := mat64.NewDense(r, c, make([]float64, r*c))
-	for i := 0; i < r; i++ {
-		for j := i; j < c; j++ {
-			newM.Set(i, j, m.At(i, j)/expt.ExpectedValue(int32(chrIdx), j-i))
+	ekey := units[unit] + "_" + strconv.Itoa(int(binSize)) + "_" + strconv.Itoa(normtype)
+	//fmt.Println("ekey", ekey)
+	expt, ok := e.Footer.ExpectedValueMap[ekey]
+	if ok {
+		newM := mat64.NewDense(r, c, make([]float64, r*c))
+		for i := 0; i < r; i++ {
+			for j := i; j < c; j++ {
+				newM.Set(i, j, m.At(i, j)/expt.ExpectedValue(int32(chrIdx), j-i))
+			}
 		}
-	}
-	return newM, nil
 
+		return newM, nil
+	} else {
+		//fmt.Println(e.Footer.ExpectedValueMap)
+		panic("not found")
+	}
+	return nil, errors.New("oe")
+}
+func (e *HiC) QueryOE(chr string, start int, end int, normtype int, unit int, resIdx int) (mat64.Matrix, error) {
+	fmt.Println("in query oe")
+	return e.queryOneFoldChangeOverExpected(bed3{chr, start, end}, normtype, unit, resIdx)
 }
