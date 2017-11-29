@@ -99,7 +99,8 @@ func (b *BlockMatrix) coordsToBlockIndexes(i int, j int, r int, c int) []int {
 	arr := make([]int, 0, (endrow-startrow+1)*(endcol-startcol+1))
 	for i := startrow; i <= endrow; i++ {
 		for j := startcol; j <= endcol; j++ {
-			idx := i*int(b.BlockColumnCount) + j
+
+			idx := max(i, j)*int(b.BlockColumnCount) + min(i, j)
 			_, ok := b.BlockIndexes[idx]
 			if ok {
 				arr = append(arr, idx)

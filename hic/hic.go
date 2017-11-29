@@ -49,7 +49,9 @@ func (e *HiC) Read(p []byte) (int, error) {
 func (e *HiC) Seek(offset int64, w int) (int64, error) {
 	return e.Reader.Seek(offset, w)
 }
-
+func (e *HiC) LoadBodyIndex(key string) (*Body, error) {
+	return e.loadBodyIndex(key)
+}
 func (e *HiC) loadBodyIndex(key string) (*Body, error) { //loadBodyIndex if it is not in buffer
 	//e.Footer.NEntrys[key]
 	body, ok := e.bodyIndexesBuffer[key]
