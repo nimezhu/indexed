@@ -301,7 +301,6 @@ func (bwf *BbiReader) Genome() ([]string, []int) {
 	return seqnames, lengths
 }
 func (bwf *BbiReader) InitIndex() error {
-	fmt.Println("readHeader")
 	if err := bwf.Header.Read(bwf.Fptr); err != nil {
 		return err
 	}
