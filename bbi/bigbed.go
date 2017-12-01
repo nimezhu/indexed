@@ -29,6 +29,19 @@ func (bb *BigBedReader) Format(e *BedBbiBlockDecoderType) string {
 	s := fmt.Sprintf("%s\t%d\t%d\t%s", chr, e.From, e.To, e.Value)
 	return s
 }
+func (bb *BigBedReader) Iter() <-chan *BedBbiBlockDecoderType {
+	channel := make(chan *BedBbiBlockDecoderType)
+	go func() {
+		for _, c := range bb.Genome.Chrs {
+			r, _ := bb.QueryRaw(c.Name, 0, c.Length)
+			for b := range r {
+				channel <- b
+			}
+		}
+		close(channel)
+	}()
+	return channel
+}
 
 func (bw *BigBedReader) Binsizes() []int {
 	binsizes := []int{}
