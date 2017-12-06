@@ -41,9 +41,7 @@ func (bw *BigWigReader) GetBinsize(length int, width int) int {
 	if length == 0 {
 		return 1
 	}
-	if width/(length/int(bw.Reader.Header.ZoomHeaders[0].ReductionLevel)) > minNumValues {
-		//return -1 //query raw data then. no return -1 this time try original.
-
+	if width*int(bw.Reader.Header.ZoomHeaders[0].ReductionLevel)/length > minNumValues {
 		var b = length / width
 		if b > 0 {
 			return b
