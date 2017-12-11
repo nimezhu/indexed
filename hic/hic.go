@@ -140,7 +140,7 @@ func (e *HiC) loadBodyIndex(key string) (*Body, error) { //loadBodyIndex if it i
 			r := (e.Chr[b.Chr1Idx].Length)/binSize + 1
 			c := (e.Chr[b.Chr2Idx].Length)/binSize + 1
 			//fmt.Println(b.Chr1Idx, b.Chr2Idx, "rc", r, c)
-			b.Mats[i] = BlockMatrix{unit, resIdx, sumCounts, occupiedCellCount, stdDev, percent95, binSize, blockBinCount, blockColumnCount, blockCount, blockIndexes, make(map[int]*Block), make(map[int]time.Time), e, int(r), int(c)}
+			b.Mats[i] = BlockMatrix{unit, resIdx, sumCounts, occupiedCellCount, stdDev, percent95, binSize, blockBinCount, blockColumnCount, blockCount, blockIndexes, make(map[int]*Block), make(map[int]time.Time), sync.Mutex{}, e, int(r), int(c)}
 			//Not suitable for parrel Mats accessing now.
 		}
 		e.mutex.Unlock()

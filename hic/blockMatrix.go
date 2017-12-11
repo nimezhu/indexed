@@ -6,6 +6,7 @@ import (
 	"log"
 	"math"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/gonum/matrix/mat64"
@@ -33,6 +34,7 @@ type BlockMatrix struct {
 	BlockIndexes      map[int]BlockIndex
 	buffers           map[int]*Block
 	lastUsedDate      map[int]time.Time
+	mux               sync.Mutex
 	reader            MutexReadSeeker //TODO change to io.ReadSeeker and Postion Index
 	r                 int
 	c                 int
@@ -73,7 +75,9 @@ func (b *BlockMatrix) loadBlock(index int) bool {
 	}
 	if !b.isBlockLoaded(index) {
 		//log.Println("loading block", index, v.Position, v.Size) //TODO RM
+		b.mux.Lock()
 		b.buffers[index] = getBlock(b.reader, v.Position, v.Size)
+		b.mux.Unlock()
 	}
 	return true
 }
@@ -179,6 +183,8 @@ func (p timeSlice) Swap(i, j int) {
  */
 func (b *BlockMatrix) cleanBuffer() {
 	var dk = []int{}
+	b.mux.Lock()
+	defer b.mux.Unlock()
 	for k, v := range b.lastUsedDate {
 		diff := time.Now().Sub(v)
 		if diff.Hours() > 1.0 {
