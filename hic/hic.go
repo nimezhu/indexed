@@ -8,10 +8,15 @@ import (
 	"sort"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/nimezhu/indexed/hic/normtype"
 	"github.com/nimezhu/indexed/hic/unit"
 	. "github.com/nimezhu/netio"
+)
+
+const (
+	maxBufferSize = 1000
 )
 
 type HiC struct {
@@ -29,13 +34,36 @@ type HiC struct {
 	NFragRes          int32
 	FragRes           []int32
 	Footer            Footer
-	bodyIndexesBuffer map[string]*Body
-	//normVectorBuffer  map[string]*NormVector
+	bodyIndexesBuffer map[string]*bodyIndexBuffer
 }
 
 const (
 	MAGIC = "HIC"
 )
+
+type bodyIndexBuffer struct {
+	body  *Body
+	count int
+	date  time.Time
+}
+type bodyIndex struct {
+	key   string
+	count int
+	date  time.Time
+}
+type bodyIndexSlice []bodyIndex
+
+func (p bodyIndexSlice) Len() int {
+	return len(p)
+}
+
+func (p bodyIndexSlice) Less(i, j int) bool {
+	return p[i].date.Before(p[j].date)
+}
+
+func (p bodyIndexSlice) Swap(i, j int) {
+	p[i], p[j] = p[j], p[i]
+}
 
 func (e *HiC) Lock() {
 	e.mutex.Lock()
@@ -56,7 +84,24 @@ func (e *HiC) loadBodyIndex(key string) (*Body, error) { //loadBodyIndex if it i
 	//e.Footer.NEntrys[key]
 	body, ok := e.bodyIndexesBuffer[key]
 	if ok {
-		return body, nil
+		e.bodyIndexesBuffer[key].count += 1
+		e.bodyIndexesBuffer[key].date = time.Now()
+		return body.body, nil
+	}
+	if len(e.bodyIndexesBuffer) > maxBufferSize {
+		go func() {
+			dateSortedBuffer := make(bodyIndexSlice, 0, len(e.bodyIndexesBuffer))
+			for k, d := range e.bodyIndexesBuffer {
+				dateSortedBuffer = append(dateSortedBuffer, bodyIndex{k, d.count, d.date})
+			}
+			sort.Sort(dateSortedBuffer)
+			l := len(dateSortedBuffer)
+			for i := 0; i < l/3; i++ {
+				if i < l/3 {
+					delete(e.bodyIndexesBuffer, dateSortedBuffer[i].key)
+				}
+			}
+		}()
 	}
 	err := errors.New("init")
 	c2 := make(chan Body, 1)
@@ -99,7 +144,11 @@ func (e *HiC) loadBodyIndex(key string) (*Body, error) { //loadBodyIndex if it i
 			//Not suitable for parrel Mats accessing now.
 		}
 		e.mutex.Unlock()
-		e.bodyIndexesBuffer[key] = &b
+		e.bodyIndexesBuffer[key] = &bodyIndexBuffer{
+			&b,
+			1,
+			time.Now(),
+		}
 		err = nil
 		c2 <- b
 	}()
@@ -133,7 +182,7 @@ func (e *HiC) String() string {
 }
 
 func NewHiC() HiC {
-	return HiC{bodyIndexesBuffer: make(map[string]*Body)}
+	return HiC{bodyIndexesBuffer: make(map[string]*bodyIndexBuffer)}
 }
 func (e *HiC) getNormalizedVector(key string) ([]float64, error) {
 	e.Footer.NormVector[key].Load(e)
