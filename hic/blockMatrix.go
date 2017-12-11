@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"sort"
+	"time"
 
 	"github.com/gonum/matrix/mat64"
 	. "github.com/nimezhu/netio"
@@ -30,6 +32,7 @@ type BlockMatrix struct {
 	BlockCount        int32
 	BlockIndexes      map[int]BlockIndex
 	buffers           map[int]*Block
+	lastUsedDate      map[int]time.Time
 	reader            MutexReadSeeker //TODO change to io.ReadSeeker and Postion Index
 	r                 int
 	c                 int
@@ -149,6 +152,56 @@ func min(a int, b int) int {
 	}
 	return b
 }
+
+type timeIndex struct {
+	key  int
+	date time.Time
+}
+type timeSlice []timeIndex
+
+func (p timeSlice) Len() int {
+	return len(p)
+}
+
+func (p timeSlice) Less(i, j int) bool {
+	return p[i].date.Before(p[j].date)
+}
+
+func (p timeSlice) Swap(i, j int) {
+	p[i], p[j] = p[j], p[i]
+}
+
+/* clean buffer
+ *	 clear 1 hour used Before
+ * 	 if still > 2/3 max size
+ *    clear 1/3 max sorted buffer
+ *  TO Test
+ */
+func (b *BlockMatrix) cleanBuffer() {
+	var dk = []int{}
+	for k, v := range b.lastUsedDate {
+		diff := time.Now().Sub(v)
+		if diff.Hours() > 1.0 {
+			delete(b.buffers, k) //TODO Test it in the field
+			dk = append(dk, k)
+		}
+	}
+	if len(b.buffers) > maxBufferSize*2/3 {
+		timeIndexes := make(timeSlice, 0, len(b.buffers))
+		for k, _ := range b.buffers {
+			date, _ := b.lastUsedDate[k]
+			timeIndexes = append(timeIndexes, timeIndex{k, date})
+		}
+		sort.Sort(timeIndexes)
+		for i := 0; i < maxBufferSize/3; i++ {
+			delete(b.buffers, timeIndexes[i].key)
+			dk = append(dk, timeIndexes[i].key)
+		}
+	}
+	for _, v := range dk {
+		delete(b.lastUsedDate, v)
+	}
+}
 func (b *BlockMatrix) View(i int, j int, r int, c int) mat64.Matrix {
 	if r*c > MaxCells {
 		return nil
@@ -160,7 +213,7 @@ func (b *BlockMatrix) View(i int, j int, r int, c int) mat64.Matrix {
 	for _, index := range blocks {
 		//fmt.Print("in blockmatrix view: ")
 		v := b.buffers[index]
-
+		b.lastUsedDate[index] = time.Now()
 		vr, vc := v.Dims()
 		xoffset := int(v.XOffset)
 		yoffset := int(v.YOffset)
@@ -175,7 +228,11 @@ func (b *BlockMatrix) View(i int, j int, r int, c int) mat64.Matrix {
 				}
 			}
 		}
-
+		if len(b.buffers) > maxBufferSize {
+			go func() {
+				b.cleanBuffer()
+			}()
+		}
 	}
 	return mat
 }
