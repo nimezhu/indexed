@@ -35,6 +35,7 @@ type HiC struct {
 	FragRes           []int32
 	Footer            Footer
 	bodyIndexesBuffer map[string]*bodyIndexBuffer
+	bufferMux         *sync.Mutex
 }
 
 const (
@@ -84,12 +85,15 @@ func (e *HiC) loadBodyIndex(key string) (*Body, error) { //loadBodyIndex if it i
 	//e.Footer.NEntrys[key]
 	body, ok := e.bodyIndexesBuffer[key]
 	if ok {
+		e.bufferMux.Lock()
 		e.bodyIndexesBuffer[key].count += 1
 		e.bodyIndexesBuffer[key].date = time.Now()
+		e.bufferMux.Unlock()
 		return body.body, nil
 	}
 	if len(e.bodyIndexesBuffer) > maxBufferSize {
 		go func() {
+			e.bufferMux.Lock()
 			dateSortedBuffer := make(bodyIndexSlice, 0, len(e.bodyIndexesBuffer))
 			for k, d := range e.bodyIndexesBuffer {
 				dateSortedBuffer = append(dateSortedBuffer, bodyIndex{k, d.count, d.date})
@@ -101,6 +105,7 @@ func (e *HiC) loadBodyIndex(key string) (*Body, error) { //loadBodyIndex if it i
 					delete(e.bodyIndexesBuffer, dateSortedBuffer[i].key)
 				}
 			}
+			e.bufferMux.Unlock()
 		}()
 	}
 	err := errors.New("init")
@@ -143,12 +148,12 @@ func (e *HiC) loadBodyIndex(key string) (*Body, error) { //loadBodyIndex if it i
 			b.Mats[i] = BlockMatrix{unit, resIdx, sumCounts, occupiedCellCount, stdDev, percent95, binSize, blockBinCount, blockColumnCount, blockCount, blockIndexes, make(map[int]*Block), make(map[int]time.Time), sync.Mutex{}, e, int(r), int(c)}
 			//Not suitable for parrel Mats accessing now.
 		}
-		e.mutex.Unlock()
 		e.bodyIndexesBuffer[key] = &bodyIndexBuffer{
 			&b,
 			1,
 			time.Now(),
 		}
+		e.mutex.Unlock()
 		err = nil
 		c2 <- b
 	}()
