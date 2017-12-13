@@ -85,29 +85,33 @@ func (e *HiC) loadBodyIndex(key string) (*Body, error) { //loadBodyIndex if it i
 	//e.Footer.NEntrys[key]
 	body, ok := e.bodyIndexesBuffer[key]
 	if ok {
-		e.bufferMux.Lock()
-		e.bodyIndexesBuffer[key].count += 1
-		e.bodyIndexesBuffer[key].date = time.Now()
-		e.bufferMux.Unlock()
+		/*
+			e.bufferMux.Lock()
+			e.bodyIndexesBuffer[key].count += 1
+			e.bodyIndexesBuffer[key].date = time.Now()
+			e.bufferMux.Unlock()
+		*/
 		return body.body, nil
 	}
-	if len(e.bodyIndexesBuffer) > maxBufferSize {
-		go func() {
-			e.bufferMux.Lock()
-			dateSortedBuffer := make(bodyIndexSlice, 0, len(e.bodyIndexesBuffer))
-			for k, d := range e.bodyIndexesBuffer {
-				dateSortedBuffer = append(dateSortedBuffer, bodyIndex{k, d.count, d.date})
-			}
-			sort.Sort(dateSortedBuffer)
-			l := len(dateSortedBuffer)
-			for i := 0; i < l/3; i++ {
-				if i < l/3 {
-					delete(e.bodyIndexesBuffer, dateSortedBuffer[i].key)
+	/*
+		if len(e.bodyIndexesBuffer) > maxBufferSize {
+			go func() {
+				e.bufferMux.Lock()
+				dateSortedBuffer := make(bodyIndexSlice, 0, len(e.bodyIndexesBuffer))
+				for k, d := range e.bodyIndexesBuffer {
+					dateSortedBuffer = append(dateSortedBuffer, bodyIndex{k, d.count, d.date})
 				}
-			}
-			e.bufferMux.Unlock()
-		}()
-	}
+				sort.Sort(dateSortedBuffer)
+				l := len(dateSortedBuffer)
+				for i := 0; i < l/3; i++ {
+					if i < l/3 {
+						delete(e.bodyIndexesBuffer, dateSortedBuffer[i].key)
+					}
+				}
+				e.bufferMux.Unlock()
+			}()
+		}
+	*/
 	err := errors.New("init")
 	c2 := make(chan Body, 1)
 	go func() {

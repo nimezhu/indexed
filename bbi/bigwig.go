@@ -38,6 +38,9 @@ var minNumValues = 30
 
 func (bw *BigWigReader) GetBinsize(length int, width int) int {
 	var binsize int
+	if width == 0 {
+		return int(bw.Reader.Header.ZoomHeaders[len(bw.Reader.Header.ZoomHeaders)-1].ReductionLevel)
+	}
 	if length == 0 {
 		return 1
 	}
