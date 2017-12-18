@@ -130,3 +130,45 @@ func (e *HiC) QueryOE(chr string, start int, end int, normtype int, unit int, re
 	fmt.Println("in query oe")
 	return e.queryOneFoldChangeOverExpected(bed3{chr, start, end}, normtype, unit, resIdx)
 }
+
+func (e *HiC) queryTwoFoldChangeOverExpected(a bed3, b bed3, normtype int, unit int, resIdx int) (mat64.Matrix, error) {
+	if a.chr != b.chr {
+		return nil, errors.New("not in the same chromosome")
+	}
+	m, err := e.queryTwoNormMat(a, b, resIdx, normtype, unit)
+	if err != nil {
+		fmt.Println(a, "error in query one norm mat", err)
+		return nil, err
+	}
+	r, c := m.Dims()
+	chrIdx := e.chr2idx(a.chr)
+	binSize := e.BpRes[resIdx]
+	ekey := units[unit] + "_" + strconv.Itoa(int(binSize)) + "_" + strconv.Itoa(normtype)
+	//fmt.Println("ekey", ekey)
+	expt, ok := e.Footer.ExpectedValueMap[ekey]
+	x, _ := e.Corrected(a.start, a.end, resIdx)
+	y, _ := e.Corrected(b.start, b.end, resIdx)
+	if ok {
+		newM := mat64.NewDense(r, c, make([]float64, r*c))
+		for i := 0; i < r; i++ {
+			for j := i; j < c; j++ {
+				d := x - y + j - i
+				if d < 0 {
+					d = -d
+				}
+				newM.Set(i, j, m.At(i, j)/expt.ExpectedValue(int32(chrIdx), d))
+			}
+		}
+
+		return newM, nil
+	} else {
+		//fmt.Println(e.Footer.ExpectedValueMap)
+		panic("not found")
+	}
+	return nil, errors.New("oe")
+}
+
+func (e *HiC) QueryOE2(chr string, start int, end int, chr2 string, start2 int, end2 int, normtype int, unit int, resIdx int) (mat64.Matrix, error) {
+	fmt.Println("in query oe2")
+	return e.queryTwoFoldChangeOverExpected(bed3{chr, start, end}, bed3{chr2, start2, end2}, normtype, unit, resIdx)
+}

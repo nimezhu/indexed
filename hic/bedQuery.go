@@ -120,6 +120,7 @@ func (e *HiC) QueryOne(chrom string, start int, end int, width int) (mat64.Matri
 }
 
 //Icon : get the lowest resolution for one matrix
+/*
 func (e *HiC) Icon(chrom string) (mat64.Matrix, error) {
 	idx := e.chr2idx(chrom)
 	if idx == -1 {
@@ -131,7 +132,8 @@ func (e *HiC) Icon(chrom string) (mat64.Matrix, error) {
 }
 
 /* IconSmart : get the icon fit the width
- */
+*/
+/*
 func (e *HiC) IconSmart(chrom string, width int) (mat64.Matrix, error) {
 	idx := e.chr2idx(chrom)
 	if idx == -1 {
@@ -176,6 +178,7 @@ func (e *HiC) Icon2Smart(chrom string, chrom2 string, width int) (mat64.Matrix, 
 		return body.Mats[8].Matrix().T(), nil
 	}
 }
+*/
 func (e *HiC) queryOne(a bed3, width int) (mat64.Matrix, error) {
 	resIdx := e.getResIdx(a.length(), width)
 	return e._queryOne(a, resIdx)
