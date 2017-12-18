@@ -169,6 +169,5 @@ func (e *HiC) queryTwoFoldChangeOverExpected(a bed3, b bed3, normtype int, unit 
 }
 
 func (e *HiC) QueryOE2(chr string, start int, end int, chr2 string, start2 int, end2 int, normtype int, unit int, resIdx int) (mat64.Matrix, error) {
-	fmt.Println("in query oe2")
 	return e.queryTwoFoldChangeOverExpected(bed3{chr, start, end}, bed3{chr2, start2, end2}, normtype, unit, resIdx)
 }
