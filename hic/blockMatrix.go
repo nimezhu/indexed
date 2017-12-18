@@ -71,15 +71,21 @@ func (b *BlockMatrix) resetBuffer() {
 func (b *BlockMatrix) loadBlock(index int) bool {
 	v, ok := b.BlockIndexes[index]
 	if !ok {
-		return ok
+		return ok //not correct index
 	}
+	signal := true
 	if !b.isBlockLoaded(index) {
 		//log.Println("loading block", index, v.Position, v.Size) //TODO RM
 		b.mux.Lock()
-		b.buffers[index] = getBlock(b.reader, v.Position, v.Size)
+		c := getBlock(b.reader, v.Position, v.Size)
+		if c.NPositions >= 0 {
+			b.buffers[index] = c
+		} else {
+			signal = false
+		}
 		b.mux.Unlock()
 	}
-	return true
+	return signal
 }
 
 func (b *BlockMatrix) coordToBlockIndex(i int, j int) int {

@@ -63,12 +63,17 @@ func getBlock(e MutexReadSeeker, blockPosition int64, blockSize int32) *Block {
 		position, _ := e.Seek(0, 1)
 		e.Seek(blockPosition, 0)
 		defer e.Seek(position, 0)
+		defer e.Unlock()
 		b := make([]byte, blockSize)
 		//l, _ := e.Read(b)
 		e.Read(b)
 		//fmt.Println(l, "=", len(b)) //assert format
 		b0 := bytes.NewReader(b)
-		c, _ := zlib.NewReader(b0)
+		c, err := zlib.NewReader(b0)
+		if err != nil {
+			chan2 <- Block{}
+			return
+		}
 		nPositions, _ := ReadInt(c)
 		Pos := make([]Position, nPositions) //？？？
 		binXOffset, _ := ReadInt(c)
@@ -190,7 +195,6 @@ func getBlock(e MutexReadSeeker, blockPosition int64, blockSize int32) *Block {
 			}
 		}
 
-		e.Unlock()
 		if index > n {
 			//log.Println("m at 0,0 warning inside", m.At(0, 0)) //TODO RM
 			chan2 <- Block{int32(index), binXOffset, binYOffset, m}
