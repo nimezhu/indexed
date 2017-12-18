@@ -152,7 +152,7 @@ func (e *HiC) queryTwoFoldChangeOverExpected(a bed3, b bed3, normtype int, unit 
 		newM := mat64.NewDense(r, c, make([]float64, r*c))
 		for i := 0; i < r; i++ {
 			for j := 0; j < c; j++ {
-				d := x - y + j - i
+				d := x - y + i - j
 				if d < 0 {
 					d = -d
 				}
