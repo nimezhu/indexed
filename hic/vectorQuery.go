@@ -43,7 +43,6 @@ func (e *HiC) QueryOneNormMat(chr string, start int, end int, resIdx int, normty
 func (e *HiC) queryOneNormMat(a bed3, resIdx int, normtype int, unit int) (mat64.Matrix, error) { //TODO check if the matrix is sparse
 	m, err := e._queryOne(a, resIdx)
 	if err != nil {
-		fmt.Println("_queryOne")
 		return nil, err
 	}
 	vec, err := e.queryVector(a, normtype, unit, resIdx)
@@ -127,7 +126,6 @@ func (e *HiC) queryOneFoldChangeOverExpected(a bed3, normtype int, unit int, res
 	return nil, errors.New("oe")
 }
 func (e *HiC) QueryOE(chr string, start int, end int, normtype int, unit int, resIdx int) (mat64.Matrix, error) {
-	fmt.Println("in query oe")
 	return e.queryOneFoldChangeOverExpected(bed3{chr, start, end}, normtype, unit, resIdx)
 }
 
