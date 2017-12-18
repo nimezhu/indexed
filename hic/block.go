@@ -71,7 +71,7 @@ func getBlock(e MutexReadSeeker, blockPosition int64, blockSize int32) *Block {
 		b0 := bytes.NewReader(b)
 		c, err := zlib.NewReader(b0)
 		if err != nil {
-			chan2 <- Block{}
+			chan2 <- Block{NPositions: -1} //error loading block
 			return
 		}
 		nPositions, _ := ReadInt(c)
