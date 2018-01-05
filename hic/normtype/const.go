@@ -69,7 +69,7 @@ func StringToIdx(s string) int {
 		return VC
 	case "coverage (sqrt)", "vc_sqrt":
 		return VC_SQRT
-	case "balanced":
+	case "balanced", "kr":
 		return KR
 	case "genome-wide balanced", "gw_kr":
 		return GW_KR
