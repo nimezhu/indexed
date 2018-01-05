@@ -11,4 +11,6 @@ func TestConst(t *testing.T) {
 	t.Log(b)
 	c := IdxToString(5)
 	t.Log(c)
+	k := StringToIdx("kr")
+	t.Log(k, "kr")
 }

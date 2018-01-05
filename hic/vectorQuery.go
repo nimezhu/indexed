@@ -171,7 +171,8 @@ func (e *HiC) queryTwoFoldChangeOverExpected(a bed3, b bed3, normtype int, unit 
 		return newM, nil
 	} else {
 		//fmt.Println(e.Footer.ExpectedValueMap)
-		panic("not found")
+		//panic("not found")
+		return nil, errors.New("not found")
 	}
 	return nil, errors.New("oe")
 }

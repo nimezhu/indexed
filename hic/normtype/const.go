@@ -1,6 +1,8 @@
 package normtype
 
-import "strings"
+import (
+	"strings"
+)
 
 //type NormType int
 

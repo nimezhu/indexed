@@ -75,7 +75,6 @@ func (b *BlockMatrix) loadBlock(index int) bool {
 	}
 	signal := true
 	if !b.isBlockLoaded(index) {
-		//log.Println("loading block", index, v.Position, v.Size) //TODO RM
 		b.mux.Lock()
 		c := getBlock(b.reader, v.Position, v.Size)
 		if c.NPositions >= 0 {
@@ -96,7 +95,6 @@ func (b *BlockMatrix) coordToBlockIndex(i int, j int) int {
 }
 
 func (b *BlockMatrix) coordsToBlockIndexes(i int, j int, r int, c int) []int {
-	//log.Println("i,j,r,c", i, j, r, c) //TODO RM
 	blockBinCount := int(b.BlockBinCount)
 	//log.Println("blockBinCount", blockBinCount)
 	startrow := i / blockBinCount
@@ -112,13 +110,26 @@ func (b *BlockMatrix) coordsToBlockIndexes(i int, j int, r int, c int) []int {
 	arr := make([]int, 0, (endrow-startrow+1)*(endcol-startcol+1))
 	for i := startrow; i <= endrow; i++ {
 		for j := startcol; j <= endcol; j++ {
-
-			idx := max(i, j)*int(b.BlockColumnCount) + min(i, j)
+			idx := i*int(b.BlockColumnCount) + j //TODO DEBUG??? sort chromosome ???
 			_, ok := b.BlockIndexes[idx]
+			if !ok {
+				idx = max(i, j)*int(b.BlockColumnCount) + min(i, j) //if symetric
+			}
+			_, ok = b.BlockIndexes[idx]
 			if ok {
 				arr = append(arr, idx)
 			} else {
 				log.Println("not ok loading", idx) //TODO Handler
+				/*
+					log.Println("i,j", i, j)           //TODO Handler
+					a := []int{}
+					for k, _ := range b.BlockIndexes {
+						a = append(a, k)
+					}
+					sort.Ints(a)
+					fmt.Println(a)
+					fmt.Println("blockcount", blockBinCount, b.BlockColumnCount)
+				*/
 			}
 		}
 	}
@@ -229,12 +240,8 @@ func (b *BlockMatrix) View(i int, j int, r int, c int) mat64.Matrix {
 		vr, vc := v.Dims()
 		xoffset := int(v.XOffset)
 		yoffset := int(v.YOffset)
-		//log.Println("i0", i0, "xoffset", v.XOffset, "yoffset", v.YOffset)
-		//log.Println("vr,vc", vr, vc) //TODO RM
-		//log.Println("warning at 0,0", v.At(0, 0), v.Mat.At(0, 0))
 		for x := max(xoffset, i); x < min(xoffset+vr, i+r); x++ {
 			for y := max(yoffset, j); y < min(yoffset+vc, j+c); y++ {
-				//	log.Println("x,y,i,j,v", x, y, i, j, v.At(x, y)) //TODO RM
 				if math.Abs(mat.At(x-i, y-j)) < math.Abs(v.At(x-xoffset, y-yoffset)) { //TODO override
 					mat.Set(x-i, y-j, v.At(x-xoffset, y-yoffset))
 				}
