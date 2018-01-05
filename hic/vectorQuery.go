@@ -45,6 +45,10 @@ func (e *HiC) queryOneNormMat(a bed3, resIdx int, normtype int, unit int) (mat64
 	if err != nil {
 		return nil, err
 	}
+	/* none norm , TODO: handle unit*/
+	if normtype == 0 {
+		return m, nil
+	}
 	vec, err := e.queryVector(a, normtype, unit, resIdx)
 	if err != nil {
 		fmt.Println(unit, normtype, "_notFoundVector")
@@ -69,6 +73,10 @@ func (e *HiC) QueryTwoNormMat(chr string, start int, end int, chr2 string, start
 }
 func (e *HiC) queryTwoNormMat(a bed3, b bed3, resIdx int, normtype int, unit int) (mat64.Matrix, error) { //TODO check if the matrix is sparse
 	m, err := e._queryTwo(a, b, resIdx)
+	/* none norm , todo handle unit */
+	if normtype == 0 {
+		return m, err
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -101,7 +109,7 @@ func (e *HiC) queryTwoNormMat(a bed3, b bed3, resIdx int, normtype int, unit int
 func (e *HiC) queryOneFoldChangeOverExpected(a bed3, normtype int, unit int, resIdx int) (mat64.Matrix, error) {
 	m, err := e.queryOneNormMat(a, resIdx, normtype, unit)
 	if err != nil {
-		fmt.Println(a, "error in query one norm mat", err)
+		//fmt.Println(a, "error in query one norm mat", err)
 		return nil, err
 	}
 	r, c := m.Dims()
@@ -135,7 +143,7 @@ func (e *HiC) queryTwoFoldChangeOverExpected(a bed3, b bed3, normtype int, unit 
 	}
 	m, err := e.queryTwoNormMat(a, b, resIdx, normtype, unit)
 	if err != nil {
-		fmt.Println(a, "error in query one norm mat", err)
+		//fmt.Println(a, "error in query one norm mat", err)
 		return nil, err
 	}
 	r, c := m.Dims()

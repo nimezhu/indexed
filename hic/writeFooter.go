@@ -6,6 +6,7 @@ import (
 	"github.com/nimezhu/netio"
 )
 
+/* WriteIndex : TODO */
 func (e *HiC) WriteIndex(w io.Writer) {
 	netio.Write(w, e.Footer.NBytes)
 	netio.Write(w, e.Footer.NEntrys)
@@ -28,6 +29,7 @@ func (e *HiC) WriteIndex(w io.Writer) {
 	*/
 }
 
+/* LoadIndex : TODO */
 func (e *HiC) LoadIndex(r io.Reader) {
 
 }
