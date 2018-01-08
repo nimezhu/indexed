@@ -38,6 +38,7 @@ type BlockMatrix struct {
 	reader            MutexReadSeeker //TODO change to io.ReadSeeker and Postion Index
 	r                 int
 	c                 int
+	useBuffer         bool
 }
 
 func (b *BlockMatrix) Matrix() mat64.Matrix {
@@ -225,6 +226,9 @@ func (b *BlockMatrix) cleanBuffer() {
 		delete(b.lastUsedDate, v)
 	}
 }
+func (b *BlockMatrix) SetUseBuffer(a bool) {
+	b.useBuffer = a
+}
 func (b *BlockMatrix) View(i int, j int, r int, c int) mat64.Matrix {
 	if r*c > MaxCells {
 		return nil
@@ -247,6 +251,13 @@ func (b *BlockMatrix) View(i int, j int, r int, c int) mat64.Matrix {
 				}
 			}
 		}
+		/* TODO
+		if b.useBuffer == false {
+			log.Println("clean buffer")
+			for k, _ := range b.buffers {
+				delete(b.buffers, k)
+			}
+		}*/
 		if len(b.buffers) > maxBufferSize {
 			go func() {
 				b.cleanBuffer()

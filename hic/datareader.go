@@ -8,8 +8,14 @@ import (
 	. "github.com/nimezhu/netio"
 )
 
+func DataReaderLowMem(buf io.ReadSeeker) (*HiC, error) {
+	return dataReader(buf, false)
+}
 func DataReader(buf io.ReadSeeker) (*HiC, error) {
-	hic := NewHiC()
+	return dataReader(buf, true)
+}
+func dataReader(buf io.ReadSeeker, useBuffer bool) (*HiC, error) {
+	hic := NewHiC(useBuffer)
 	hic.mutex = &sync.Mutex{}
 	hic.Reader = buf
 	magic, _ := ReadString(buf)

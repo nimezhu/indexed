@@ -36,6 +36,7 @@ type HiC struct {
 	Footer            Footer
 	bodyIndexesBuffer map[string]*bodyIndexBuffer
 	bufferMux         *sync.Mutex
+	useBuffer         bool
 }
 
 const (
@@ -149,7 +150,7 @@ func (e *HiC) loadBodyIndex(key string) (*Body, error) { //loadBodyIndex if it i
 			r := (e.Chr[b.Chr1Idx].Length)/binSize + 1
 			c := (e.Chr[b.Chr2Idx].Length)/binSize + 1
 			//fmt.Println(b.Chr1Idx, b.Chr2Idx, "rc", r, c)
-			b.Mats[i] = BlockMatrix{unit, resIdx, sumCounts, occupiedCellCount, stdDev, percent95, binSize, blockBinCount, blockColumnCount, blockCount, blockIndexes, make(map[int]*Block), make(map[int]time.Time), sync.Mutex{}, e, int(r), int(c)}
+			b.Mats[i] = BlockMatrix{unit, resIdx, sumCounts, occupiedCellCount, stdDev, percent95, binSize, blockBinCount, blockColumnCount, blockCount, blockIndexes, make(map[int]*Block), make(map[int]time.Time), sync.Mutex{}, e, int(r), int(c), e.useBuffer}
 			//Not suitable for parrel Mats accessing now.
 		}
 		e.bodyIndexesBuffer[key] = &bodyIndexBuffer{
@@ -190,9 +191,10 @@ func (e *HiC) String() string {
 	return s.String()
 }
 
-func NewHiC() HiC {
-	return HiC{bodyIndexesBuffer: make(map[string]*bodyIndexBuffer)}
+func NewHiC(useBuffer bool) HiC {
+	return HiC{bodyIndexesBuffer: make(map[string]*bodyIndexBuffer), useBuffer: useBuffer}
 }
+
 func (e *HiC) getNormalizedVector(key string) ([]float64, error) {
 	e.Footer.NormVector[key].Load(e)
 	return e.Footer.NormVector[key].Data()
