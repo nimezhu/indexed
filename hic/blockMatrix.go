@@ -62,11 +62,14 @@ func (b *BlockMatrix) String() string {
 	return s.String()
 }
 
-func (b *BlockMatrix) resetBuffer() {
+func (b *BlockMatrix) resetBuffer(i int) {
+	b.mux.Lock()
+	defer b.mux.Unlock()
 	for k := range b.buffers {
-		delete(b.buffers, k)
+		if k != i {
+			delete(b.buffers, k)
+		}
 	}
-
 }
 
 func (b *BlockMatrix) loadBlock(index int) bool {
@@ -121,16 +124,6 @@ func (b *BlockMatrix) coordsToBlockIndexes(i int, j int, r int, c int) []int {
 				arr = append(arr, idx)
 			} else {
 				log.Println("not ok loading", idx) //TODO Handler
-				/*
-					log.Println("i,j", i, j)           //TODO Handler
-					a := []int{}
-					for k, _ := range b.BlockIndexes {
-						a = append(a, k)
-					}
-					sort.Ints(a)
-					fmt.Println(a)
-					fmt.Println("blockcount", blockBinCount, b.BlockColumnCount)
-				*/
 			}
 		}
 	}
@@ -148,6 +141,12 @@ func (b *BlockMatrix) loadBlocks(indexes []int) {
 }
 func (b *BlockMatrix) At(i int, j int) float64 {
 	block := b.coordToBlockIndex(i, j)
+	if !b.useBuffer && len(b.buffers) > 5 { //mininum TO be test
+		go func() {
+			log.Println("reset buffer")
+			b.resetBuffer(block)
+		}()
+	}
 	_, ok := b.BlockIndexes[block]
 	if ok {
 		b.loadBlock(block)
@@ -160,7 +159,7 @@ func (b *BlockMatrix) At(i int, j int) float64 {
 		}
 	}
 	//log.Println("Not ok") //TODO RM
-	return 0.0 //TODO
+	return math.NaN() //TODO
 }
 func max(a int, b int) int {
 	if a > b {
