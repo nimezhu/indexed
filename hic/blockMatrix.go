@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	MaxCells = 100000000 //10000*10000
+	MaxCells = 1000000 //1000*1000
 )
 
 /* BlockMatrix : implement mat64.Matrix interface
@@ -233,36 +233,52 @@ func (b *BlockMatrix) View(i int, j int, r int, c int) mat64.Matrix {
 	if r*c > MaxCells {
 		return nil
 	}
+	if b.useBuffer && len(b.buffers) > maxBufferSize {
+		go func() {
+			log.Println("clean buffer")
+			b.cleanBuffer() //TODO with Syntax.
+		}()
+	}
 	mat := mat64.NewDense(r, c, make([]float64, r*c))
 	blocks := b.coordsToBlockIndexes(i, j, r, c)
 	//log.Println(blocks)
-	b.loadBlocks(blocks)
-	for _, index := range blocks {
-		//fmt.Print("in blockmatrix view: ")
-		v := b.buffers[index]
-		b.lastUsedDate[index] = time.Now()
-		vr, vc := v.Dims()
-		xoffset := int(v.XOffset)
-		yoffset := int(v.YOffset)
-		for x := max(xoffset, i); x < min(xoffset+vr, i+r); x++ {
-			for y := max(yoffset, j); y < min(yoffset+vc, j+c); y++ {
-				if math.Abs(mat.At(x-i, y-j)) < math.Abs(v.At(x-xoffset, y-yoffset)) { //TODO override
-					mat.Set(x-i, y-j, v.At(x-xoffset, y-yoffset))
+	if b.useBuffer {
+		b.loadBlocks(blocks)
+		for _, index := range blocks {
+			v := b.buffers[index]
+			b.lastUsedDate[index] = time.Now()
+			vr, vc := v.Dims()
+			xoffset := int(v.XOffset)
+			yoffset := int(v.YOffset)
+			for x := max(xoffset, i); x < min(xoffset+vr, i+r); x++ {
+				for y := max(yoffset, j); y < min(yoffset+vc, j+c); y++ {
+					if math.Abs(mat.At(x-i, y-j)) < math.Abs(v.At(x-xoffset, y-yoffset)) { //TODO override
+						mat.Set(x-i, y-j, v.At(x-xoffset, y-yoffset))
+					}
 				}
 			}
 		}
-		/* TODO
-		if b.useBuffer == false {
-			log.Println("clean buffer")
-			for k, _ := range b.buffers {
-				delete(b.buffers, k)
+	} else {
+		b.mux.Lock()
+		for _, index := range blocks {
+			v0, ok := b.BlockIndexes[index]
+			if !ok {
+				return nil
 			}
-		}*/
-		if len(b.buffers) > maxBufferSize {
-			go func() {
-				b.cleanBuffer()
-			}()
+			v := getBlock(b.reader, v0.Position, v0.Size)
+			vr, vc := v.Dims()
+			xoffset := int(v.XOffset)
+			yoffset := int(v.YOffset)
+			for x := max(xoffset, i); x < min(xoffset+vr, i+r); x++ {
+				for y := max(yoffset, j); y < min(yoffset+vc, j+c); y++ {
+					if math.Abs(mat.At(x-i, y-j)) < math.Abs(v.At(x-xoffset, y-yoffset)) { //TODO override
+						mat.Set(x-i, y-j, v.At(x-xoffset, y-yoffset))
+					}
+				}
+			}
 		}
+		b.mux.Unlock()
 	}
+
 	return mat
 }
