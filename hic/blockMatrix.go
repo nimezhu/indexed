@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	MaxCells = 1000000 //1000*1000
+	MaxCells = 16000000 //4000*4000
 )
 
 /* BlockMatrix : implement mat64.Matrix interface

@@ -36,7 +36,6 @@ func NewBbiReader(f io.ReadSeeker) *BbiReader {
 }
 func (bwf *BbiReader) QueryRaw(idx, from, to int) <-chan *BbiBlockDecoderType { //Try to get raw data instead of binsize.
 	ch := make(chan *BbiBlockDecoderType)
-	log.Println("query raw data", idx, from, to)
 	go func() {
 		traverser := NewRTreeTraverser(&bwf.Index)
 		defer close(ch)
@@ -96,7 +95,6 @@ func (bwf *BbiReader) query(channel chan *BbiQueryType, idx, from, to, binsize i
 
 func (bwf *BbiReader) queryRaw(channel chan *BbiQueryType, idx, from, to, binsize int) {
 	// no zoom level found, try raw data
-	//log.Println("in query raw")
 	c := make(chan bool, 1)
 	go func() {
 		traverser := NewRTreeTraverser(&bwf.Index)
@@ -115,9 +113,10 @@ func (bwf *BbiReader) queryRaw(channel chan *BbiQueryType, idx, from, to, binsiz
 				return
 			}
 			for record := range decoder.Decode() {
-				if record.From < from || record.To > to {
+				if record.From > to || record.To < from {
 					continue
 				}
+				//TODO correct bin residue.
 				if (record.To-record.From) < binsize || binsize%(record.To-record.From) == 0 { //TODO  add (record.To-record.From) < binsize || is this correct?
 					// check if current result record is full
 					// fmt.Println(result.Max)
@@ -333,4 +332,79 @@ func (bwf *BbiReader) InitIndex() error {
 		}
 	}
 	return nil
+}
+
+/* TODO : handle resolution problem
+ * queryBins : return a []float64 vector ???
+ * query exact bins
+ * not for visualization , but for calc
+ * result should be a float64 vector.
+ * this function is for calculation only.
+ * handle record one by one
+ */
+func (bwf *BbiReader) queryBins(channel chan *BbiQueryType, idx, from, to, binsize int) {
+	c := make(chan bool, 1)
+	go func() {
+		traverser := NewRTreeTraverser(&bwf.Index)
+		// current zoom record
+		var result *BbiQueryType
+		bwf.mutex.Lock()
+		for r := range traverser.QueryVertices(idx, from, to) {
+			block, err := r.Vertex.ReadBlockFromReader(bwf, r.Idx)
+			if err != nil {
+				channel <- &BbiQueryType{Error: err}
+				return
+			}
+			decoder, err := NewBbiBlockDecoder(block)
+			if err != nil {
+				channel <- &BbiQueryType{Error: err}
+				return
+			}
+			for record := range decoder.Decode() {
+				if record.From > to || record.To < from {
+					continue
+				}
+				//TODO correct bin residue.
+				if (record.To-record.From) < binsize || binsize%(record.To-record.From) == 0 { //TODO  add (record.To-record.From) < binsize || is this correct?
+					// check if current result record is full
+					// fmt.Println(result.Max)
+					//DEBUG
+
+					if result == nil || (result.To-result.From) >= binsize {
+						if result != nil {
+							channel <- result
+						}
+						result = NewBbiQueryType()
+						result.ChromId = idx
+						result.From = record.From
+					}
+					// add contents of current record to the resulting record
+					//fmt.Println(record.Value)
+					result.AddValue(record.Value)
+					result.To = record.To
+				} else {
+					//TODO
+					//channel <- &BbiQueryType{Error: fmt.Errorf("invalid binsize")}
+					if result != nil {
+						channel <- result
+					}
+					singleRecord := NewBbiQueryType()
+					singleRecord.ChromId = idx
+					singleRecord.From = record.From
+					singleRecord.To = record.To
+					singleRecord.AddValue(record.Value)
+					channel <- singleRecord
+					result = nil
+					//return not return but skip large binsize data. TODO handle large region data.
+				}
+			}
+		}
+
+		if result != nil { //no record added. handle.
+			channel <- result
+		}
+		bwf.mutex.Unlock()
+		c <- true
+	}()
+	<-c
 }
