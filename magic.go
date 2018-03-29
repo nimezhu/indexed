@@ -6,8 +6,8 @@ import (
 	"io"
 	"log"
 	"os"
-	"path/filepath"
 	"regexp"
+	"strings"
 
 	"github.com/nimezhu/netio"
 )
@@ -45,12 +45,23 @@ func MagicReadSeeker(f io.ReadSeeker) (string, error) {
 	return "unknown", errors.New("unknown format")
 }
 func Magic(uri string) (string, error) {
+	/*TODO UPDATE CUSTOMIZED FORMAT
 	if ok, _ := regexp.MatchString("^binindex:", uri); ok {
 		return "binindex", nil
 	}
+
 	if _, err := os.Stat(filepath.Join(filepath.Dir(uri), "images")); err == nil {
 		if _, err := os.Stat(uri + ".tbi"); err == nil {
 			return "image", err
+		}
+	}
+	*/
+	/* customized format  Interface */
+	/* _format_:[[format]]:[[uri]] */
+	if ok, _ := regexp.MatchString("_format_:", uri); ok {
+		a := strings.Split(uri, ":")
+		if len(a) >= 3 {
+			return a[1], nil
 		}
 	}
 	if _, err := os.Stat(uri + ".tbi"); err == nil {

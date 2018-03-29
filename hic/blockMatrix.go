@@ -18,7 +18,6 @@ const (
 )
 
 /* BlockMatrix : implement mat64.Matrix interface
- *
  */
 type BlockMatrix struct {
 	Unit              string
