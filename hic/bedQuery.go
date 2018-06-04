@@ -3,6 +3,7 @@ package hic
 import (
 	"errors"
 	"strconv"
+	"strings"
 
 	"github.com/gonum/matrix/mat64"
 )
@@ -31,9 +32,13 @@ func merge(a bed3, b bed3) (bed3, error) {
 func (a bed3) length() int {
 	return a.end - a.start
 }
+
+/* handle chr1 Chr1 CHR1 and 1 as same one */
 func (e *HiC) chr2idx(chr string) int {
 	for i, v := range e.Chr {
-		if v.Name == chr {
+		a := strings.Replace(strings.ToLower(v.Name), "chr", "", -1)
+		b := strings.Replace(strings.ToLower(chr), "chr", "", -1)
+		if a == b {
 			return i
 		}
 	}
