@@ -243,8 +243,10 @@ func (b *BlockMatrix) View(i int, j int, r int, c int) mat64.Matrix {
 	if b.useBuffer {
 		b.loadBlocks(blocks)
 		for _, index := range blocks {
-			v := b.buffers[index]
+			v := b.buffers[index] //TODO fix write same time
+			b.mux.Lock()
 			b.lastUsedDate[index] = time.Now()
+			b.mux.Unlock()
 			vr, vc := v.Dims()
 			xoffset := int(v.XOffset)
 			yoffset := int(v.YOffset)
