@@ -116,27 +116,36 @@ func (bwf *BbiReader) queryRaw(channel chan *BbiQueryType, idx, from, to, binsiz
 				if record.From > to || record.To < from {
 					continue
 				}
-				//TODO correct bin residue.
-				if (record.To-record.From) < binsize || binsize%(record.To-record.From) == 0 { //TODO  add (record.To-record.From) < binsize || is this correct?
-					// check if current result record is full
-					// fmt.Println(result.Max)
-					//DEBUG
-
-					if result == nil || (result.To-result.From) >= binsize {
-						if result != nil {
+				//if (record.To-record.From) < binsize || binsize%(record.To-record.From) == 0 {
+				if (record.To - record.From) < binsize {
+					if result != nil {
+						if record.From-result.To > binsize {
+							if result.To-result.From < binsize { // correct result binsize
+								result.To = result.From + binsize
+							}
 							channel <- result
+							result = NewBbiQueryType()
+							result.ChromId = idx
+							result.From = record.From
+						} else if result.To-result.From >= binsize {
+							if result.To-result.From < binsize { // correct result binsize
+								result.To = result.From + binsize
+							}
+							channel <- result
+							result = NewBbiQueryType()
+							result.ChromId = idx
+							result.From = record.From
 						}
+
+					}
+					if result == nil {
 						result = NewBbiQueryType()
 						result.ChromId = idx
 						result.From = record.From
 					}
-					// add contents of current record to the resulting record
-					//fmt.Println(record.Value)
 					result.AddValue(record.Value)
 					result.To = record.To
 				} else {
-					//TODO
-					//channel <- &BbiQueryType{Error: fmt.Errorf("invalid binsize")}
 					if result != nil {
 						channel <- result
 					}
