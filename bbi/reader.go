@@ -119,7 +119,7 @@ func (bwf *BbiReader) queryRaw(channel chan *BbiQueryType, idx, from, to, binsiz
 				//if (record.To-record.From) < binsize || binsize%(record.To-record.From) == 0 {
 				if (record.To - record.From) < binsize {
 					if result != nil {
-						if record.From-result.To > binsize {
+						if record.To-result.To >= binsize {
 							if result.To-result.From < binsize { // correct result binsize
 								result.To = result.From + binsize
 							}
@@ -147,6 +147,9 @@ func (bwf *BbiReader) queryRaw(channel chan *BbiQueryType, idx, from, to, binsiz
 					result.To = record.To
 				} else {
 					if result != nil {
+						if result.To-result.From < binsize { // correct result binsize
+							result.To = result.From + binsize
+						}
 						channel <- result
 					}
 					singleRecord := NewBbiQueryType()
@@ -186,28 +189,49 @@ func (bwf *BbiReader) queryZoom(channel chan *BbiQueryType, zoomIdx, idx, from, 
 				return
 			}
 			decoder := NewBbiZoomBlockDecoder(block)
-
 			for record := range decoder.Decode() {
 				//log.Println("debug", record.ChromId, record.From)
 				if record.ChromId != idx || record.From < from || record.To > to {
 					continue
 				}
-				if (record.To-record.From) < binsize || binsize%(record.To-record.From) == 0 {
-					// check if current result record is full
-					if result == nil || (result.To-result.From) >= binsize {
-						if result != nil {
+				if (record.To - record.From) < binsize {
+					if result != nil {
+						if record.To-result.To >= binsize {
+							if result.To-result.From < binsize { // correct result binsize
+								result.To = result.From + binsize
+							}
 							channel <- result
+							result = NewBbiQueryType()
+							result.ChromId = idx
+							result.From = record.From
+						} else if result.To-result.From >= binsize {
+							channel <- result
+							result = NewBbiQueryType()
+							result.ChromId = idx
+							result.From = record.From
 						}
+					}
+					if result == nil {
 						result = NewBbiQueryType()
 						result.ChromId = idx
 						result.From = record.From
 					}
-					// add contents of current record to the resulting record
 					result.AddRecord(record.BbiSummaryRecord)
 					result.To = record.To
 				} else {
-					channel <- &BbiQueryType{Error: fmt.Errorf("invalid binsize")}
-					return
+					if result != nil {
+						if result.To-result.From < binsize { // correct result binsize
+							result.To = result.From + binsize
+						}
+						channel <- result
+					}
+					singleRecord := NewBbiQueryType()
+					singleRecord.ChromId = idx
+					singleRecord.From = record.From
+					singleRecord.To = record.To
+					singleRecord.AddRecord(record.BbiSummaryRecord)
+					channel <- singleRecord
+					result = nil
 				}
 			}
 		}
