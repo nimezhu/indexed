@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"sync"
 	"time"
+	//"unsafe"
 
 	"github.com/nimezhu/indexed/hic/normtype"
 	"github.com/nimezhu/indexed/hic/unit"
@@ -16,7 +17,7 @@ import (
 )
 
 const (
-	maxBufferSize = 1000
+	maxIndexesBufferSize = 1000
 )
 
 type HiC struct {
@@ -82,37 +83,40 @@ func (e *HiC) Seek(offset int64, w int) (int64, error) {
 func (e *HiC) LoadBodyIndex(key string) (*Body, error) {
 	return e.loadBodyIndex(key)
 }
-func (e *HiC) loadBodyIndex(key string) (*Body, error) { //loadBodyIndex if it is not in buffer
+func (e *HiC) loadBodyIndex(key string) (*Body, error) {
+	//loadBodyIndex if it is not in buffer
 	//e.Footer.NEntrys[key]
+	//TODO: Free Block Matrix and Add Monitor for buffer
+	// log.Println("loading body index", key)
+	// log.Println("loading bodyIndexesBuffer", e.bodyIndexesBuffer)
+	if len(e.bodyIndexesBuffer) > maxIndexesBufferSize {
+		//log.Println("buffer indexes len", len(e.bodyIndexesBuffer))
+		//log.Println("delete bodyIndexes buffer now")
+		e.bufferMux.Lock()
+		dateSortedBuffer := make(bodyIndexSlice, 0, len(e.bodyIndexesBuffer))
+		for k, d := range e.bodyIndexesBuffer {
+			dateSortedBuffer = append(dateSortedBuffer, bodyIndex{k, d.count, d.date})
+		}
+		sort.Sort(dateSortedBuffer)
+		l := len(dateSortedBuffer)
+		for i := 0; i < 2*l/3; i++ {
+			if i < 2*l/3 {
+				delete(e.bodyIndexesBuffer, dateSortedBuffer[i].key)
+			}
+		}
+		e.bufferMux.Unlock()
+		//log.Println("done")
+	}
+	e.bufferMux.Lock()
 	body, ok := e.bodyIndexesBuffer[key]
 	if ok {
-		/*
-			e.bufferMux.Lock()
-			e.bodyIndexesBuffer[key].count += 1
-			e.bodyIndexesBuffer[key].date = time.Now()
-			e.bufferMux.Unlock()
-		*/
+		e.bodyIndexesBuffer[key].count += 1
+		e.bodyIndexesBuffer[key].date = time.Now()
+		e.bufferMux.Unlock()
 		return body.body, nil
+	} else {
+		e.bufferMux.Unlock()
 	}
-	/*
-		if len(e.bodyIndexesBuffer) > maxBufferSize {
-			go func() {
-				e.bufferMux.Lock()
-				dateSortedBuffer := make(bodyIndexSlice, 0, len(e.bodyIndexesBuffer))
-				for k, d := range e.bodyIndexesBuffer {
-					dateSortedBuffer = append(dateSortedBuffer, bodyIndex{k, d.count, d.date})
-				}
-				sort.Sort(dateSortedBuffer)
-				l := len(dateSortedBuffer)
-				for i := 0; i < l/3; i++ {
-					if i < l/3 {
-						delete(e.bodyIndexesBuffer, dateSortedBuffer[i].key)
-					}
-				}
-				e.bufferMux.Unlock()
-			}()
-		}
-	*/
 	err := errors.New("init")
 	c2 := make(chan Body, 1)
 	go func() {
@@ -150,7 +154,7 @@ func (e *HiC) loadBodyIndex(key string) (*Body, error) { //loadBodyIndex if it i
 			r := (e.Chr[b.Chr1Idx].Length)/binSize + 1
 			c := (e.Chr[b.Chr2Idx].Length)/binSize + 1
 			//fmt.Println(b.Chr1Idx, b.Chr2Idx, "rc", r, c)
-			b.Mats[i] = BlockMatrix{unit, resIdx, sumCounts, occupiedCellCount, stdDev, percent95, binSize, blockBinCount, blockColumnCount, blockCount, blockIndexes, make(map[int]*Block), make(map[int]time.Time), sync.Mutex{}, e, int(r), int(c), e.useBuffer}
+			b.Mats[i] = BlockMatrix{unit, resIdx, sumCounts, occupiedCellCount, stdDev, percent95, binSize, blockBinCount, blockColumnCount, blockCount, blockIndexes, make(map[int]*Block), make(map[int]time.Time), sync.Mutex{}, sync.Mutex{}, e, int(r), int(c), e.useBuffer}
 			//Not suitable for parrel Mats accessing now.
 		}
 		e.bodyIndexesBuffer[key] = &bodyIndexBuffer{
@@ -192,7 +196,7 @@ func (e *HiC) String() string {
 }
 
 func NewHiC(useBuffer bool) HiC {
-	return HiC{bodyIndexesBuffer: make(map[string]*bodyIndexBuffer), useBuffer: useBuffer}
+	return HiC{bufferMux: &sync.Mutex{}, bodyIndexesBuffer: make(map[string]*bodyIndexBuffer), useBuffer: useBuffer}
 }
 
 func (e *HiC) getNormalizedVector(key string) ([]float64, error) {
@@ -306,3 +310,5 @@ func (e *HiC) readFooter() {
 	<-c
 	return
 }
+
+/* Add Check Buffer Size */

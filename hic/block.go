@@ -19,9 +19,12 @@ type Block struct {
 	NPositions int32
 	XOffset    int32
 	YOffset    int32
-	Mat        MatrixViewer //using dense now. todo sparse later.
+	Mat        *mat64.Dense //using dense now. todo sparse later.
 }
 
+func (b *Block) FreeMem() {
+	b.Mat.Reset()
+}
 func (b *Block) At(i int, j int) float64 {
 	return b.Mat.At(i, j)
 }
@@ -57,7 +60,8 @@ func checkErr(err error) {
 	}
 }
 func getBlock(e MutexReadSeeker, blockPosition int64, blockSize int32) *Block {
-	chan2 := make(chan Block, 1)
+	chan2 := make(chan *Block, 1)
+	//log.Println("getBlock", blockPosition)
 	go func() {
 		e.Lock()
 		position, _ := e.Seek(0, 1)
@@ -71,7 +75,7 @@ func getBlock(e MutexReadSeeker, blockPosition int64, blockSize int32) *Block {
 		b0 := bytes.NewReader(b)
 		c, err := zlib.NewReader(b0)
 		if err != nil {
-			chan2 <- Block{NPositions: -1} //error loading block
+			chan2 <- &Block{NPositions: -1} //error loading block
 			return
 		}
 		nPositions, _ := ReadInt(c)
@@ -197,11 +201,13 @@ func getBlock(e MutexReadSeeker, blockPosition int64, blockSize int32) *Block {
 
 		if index > n {
 			//log.Println("m at 0,0 warning inside", m.At(0, 0)) //TODO RM
-			chan2 <- Block{int32(index), binXOffset, binYOffset, m}
+			chan2 <- &Block{int32(index), binXOffset, binYOffset, m}
 		} else {
-			chan2 <- Block{nPositions, binXOffset, binYOffset, m}
+			chan2 <- &Block{nPositions, binXOffset, binYOffset, m}
 		}
+		b = nil
 	}()
-	b := <-chan2
-	return &b
+	b0 := <-chan2
+	close(chan2)
+	return b0
 }

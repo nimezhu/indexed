@@ -5,16 +5,18 @@ import (
 	"fmt"
 	"log"
 	"math"
-	"sort"
+	//"sort"
 	"sync"
 	"time"
+	"unsafe"
 
 	"github.com/gonum/matrix/mat64"
 	. "github.com/nimezhu/netio"
 )
 
 const (
-	MaxCells = 16000000 //4000*4000
+	MaxCells           = 16000000 //4000*4000
+	maxBlockBufferSize = 2
 )
 
 /* BlockMatrix : implement mat64.Matrix interface
@@ -33,6 +35,7 @@ type BlockMatrix struct {
 	BlockIndexes      map[int]BlockIndex
 	buffers           map[int]*Block
 	lastUsedDate      map[int]time.Time
+	bufferMux         sync.Mutex
 	mux               sync.Mutex
 	reader            MutexReadSeeker //TODO change to io.ReadSeeker and Postion Index
 	r                 int
@@ -62,13 +65,15 @@ func (b *BlockMatrix) String() string {
 }
 
 func (b *BlockMatrix) resetBuffer(i int) {
-	b.mux.Lock()
-	defer b.mux.Unlock()
+	b.bufferMux.Lock()
+	defer b.bufferMux.Unlock()
+	log.Println("reset block matrix buffers")
 	for k := range b.buffers {
 		if k != i {
 			delete(b.buffers, k)
 		}
 	}
+	log.Println("done")
 }
 
 func (b *BlockMatrix) loadBlock(index int) bool {
@@ -198,31 +203,48 @@ func (p timeSlice) Swap(i, j int) {
  *  TO Test
  */
 func (b *BlockMatrix) cleanBuffer() {
-	var dk = []int{}
-	b.mux.Lock()
-	defer b.mux.Unlock()
-	for k, v := range b.lastUsedDate {
-		diff := time.Now().Sub(v)
-		if diff.Hours() > 1.0 {
-			delete(b.buffers, k) //TODO Test it in the field
-			dk = append(dk, k)
+	//var dk = []int{}
+	b.bufferMux.Lock()
+	defer b.bufferMux.Unlock()
+	/*
+		for k, v := range b.lastUsedDate {
+			diff := time.Now().Sub(v)
+			if diff.Hours() > 1.0 {
+				delete(b.buffers, k) //TODO Test it in the field
+				dk = append(dk, k)
+			}
 		}
+	*/
+	//log.Println("buffers length", len(b.buffers))
+	//log.Println("maxBlockBufferSize", maxBlockBufferSize)
+	for k, v := range b.buffers {
+		v.FreeMem()
+		delete(b.buffers, k)
+		delete(b.lastUsedDate, k)
+		//log.Println("delete", k)
+		v = nil
 	}
-	if len(b.buffers) > maxBufferSize*2/3 {
-		timeIndexes := make(timeSlice, 0, len(b.buffers))
-		for k, _ := range b.buffers {
-			date, _ := b.lastUsedDate[k]
-			timeIndexes = append(timeIndexes, timeIndex{k, date})
+	/*
+		if len(b.buffers) > maxBlockBufferSize*2/3 {
+			timeIndexes := make(timeSlice, 0, len(b.buffers))
+			for k, _ := range b.buffers {
+				date, _ := b.lastUsedDate[k]
+				timeIndexes = append(timeIndexes, timeIndex{k, date})
+				log.Println(k)
+			}
+			sort.Sort(timeIndexes)
+			for i := 0; i < maxBlockBufferSize/3; i++ {
+				delete(b.buffers, timeIndexes[i].key)
+				log.Println("delete", timeIndexes[i].key)
+				dk = append(dk, timeIndexes[i].key)
+			}
 		}
-		sort.Sort(timeIndexes)
-		for i := 0; i < maxBufferSize/3; i++ {
-			delete(b.buffers, timeIndexes[i].key)
-			dk = append(dk, timeIndexes[i].key)
+		for _, v := range dk {
+			delete(b.lastUsedDate, v)
 		}
-	}
-	for _, v := range dk {
-		delete(b.lastUsedDate, v)
-	}
+	*/
+	//Add Buffer Mutex to Clean
+
 }
 func (b *BlockMatrix) SetUseBuffer(a bool) {
 	b.useBuffer = a
@@ -231,9 +253,9 @@ func (b *BlockMatrix) View(i int, j int, r int, c int) mat64.Matrix {
 	if r*c > MaxCells {
 		return nil
 	}
-	if b.useBuffer && len(b.buffers) > maxBufferSize {
+	if b.useBuffer && len(b.buffers) > maxBlockBufferSize {
 		go func() {
-			log.Println("clean buffer")
+			//log.Println("clean buffer")
 			b.cleanBuffer() //TODO with Syntax.
 		}()
 	}
@@ -241,12 +263,15 @@ func (b *BlockMatrix) View(i int, j int, r int, c int) mat64.Matrix {
 	blocks := b.coordsToBlockIndexes(i, j, r, c)
 	//log.Println(blocks)
 	if b.useBuffer {
+		//log.Println("using buffer")
+		b.bufferMux.Lock() //TODO ADD Buffer Lock Instead
 		b.loadBlocks(blocks)
 		for _, index := range blocks {
-			v := b.buffers[index] //TODO fix write same time
-			b.mux.Lock()
+			v, ok := b.buffers[index] //TODO fix write same time
+			if !ok {
+
+			}
 			b.lastUsedDate[index] = time.Now()
-			b.mux.Unlock()
 			vr, vc := v.Dims()
 			xoffset := int(v.XOffset)
 			yoffset := int(v.YOffset)
@@ -258,8 +283,10 @@ func (b *BlockMatrix) View(i int, j int, r int, c int) mat64.Matrix {
 				}
 			}
 		}
+		b.bufferMux.Unlock()
 	} else {
 		b.mux.Lock()
+		//log.Println("not using buffer")
 		for _, index := range blocks {
 			v0, ok := b.BlockIndexes[index]
 			if !ok {
@@ -281,4 +308,10 @@ func (b *BlockMatrix) View(i int, j int, r int, c int) mat64.Matrix {
 	}
 
 	return mat
+}
+
+/* BufferSize */
+
+func (b *BlockMatrix) BufferSize() uintptr {
+	return unsafe.Sizeof(b.buffers)
 }
