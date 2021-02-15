@@ -92,7 +92,7 @@ func (e *HiC) _queryTwo(a bed3, b bed3, resIdx int) (mat64.Matrix, error) { //as
 	}
 	abKey := strconv.Itoa(aIdx) + "_" + strconv.Itoa(bIdx)
 	abBody, err := e.loadBodyIndex(abKey)
-	if err !== nil {
+	if err != nil {
 		return nil, err
 	}
 	abMat := abBody.Mats[resIdx].View(aStart, bStart, aEnd-aStart, bEnd-bStart)
