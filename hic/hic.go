@@ -132,6 +132,10 @@ func (e *HiC) loadBodyIndex(key string) (*Body, error) {
 		b.Chr2Idx, _ = ReadInt(e)
 		b.NRes, _ = ReadInt(e)
 		b.Mats = make([]BlockMatrix, b.NRes)
+		if b.NRes == 0 {
+			err = errors.New("no data found")
+			c2 <- b
+		}
 		for i := int32(0); i < b.NRes; i++ {
 			unit, _ := ReadString(e)
 			resIdx, _ := ReadInt(e)
