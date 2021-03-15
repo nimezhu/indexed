@@ -128,10 +128,9 @@ func (e *HiC) queryOneFoldChangeOverExpected(a bed3, normtype int, unit int, res
 
 		return newM, nil
 	} else {
-		//fmt.Println(e.Footer.ExpectedValueMap)
-		panic("not found")
+		return nil, errors.New("oe not found")
 	}
-	return nil, errors.New("oe")
+	return nil, errors.New("oe not found")
 }
 func (e *HiC) QueryOE(chr string, start int, end int, normtype int, unit int, resIdx int) (mat64.Matrix, error) {
 	return e.queryOneFoldChangeOverExpected(bed3{chr, start, end}, normtype, unit, resIdx)

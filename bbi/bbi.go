@@ -95,7 +95,8 @@ func compressSlice(data []byte) ([]byte, error) {
 	var b bytes.Buffer
 	z, err := zlib.NewWriterLevel(&b, zlib.BestCompression)
 	if err != nil {
-		panic(err)
+		//panic(err)
+		return nil, err
 	}
 	_, err = z.Write(data)
 	if err != nil {
@@ -513,7 +514,7 @@ func (writer *BbiBlockEncoder) encodeBlockZoom(channel chan BbiBlockEncoderType,
 			if tmp := b.Bytes(); len(tmp) > 0 {
 				if f == -1 {
 					// this shouldn't happen
-					panic("internal error")
+					// panic("internal error")
 				}
 				// send block over channel
 				channel <- BbiBlockEncoderType{
@@ -1165,7 +1166,8 @@ func (tree *RTree) BuildTree(leaves []*RVertex) error {
 		d := int(math.Ceil(math.Log(float64(len(leaves))) / math.Log(float64(tree.BlockSize))))
 		// construct tree
 		if root, leaves := tree.buildTreeRec(leaves, d-1); len(leaves) != 0 {
-			panic("internal error")
+			// panic("internal error")
+			return errors.New("internal error")
 		} else {
 			tree.Root = root
 		}
