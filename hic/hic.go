@@ -144,6 +144,7 @@ func (e *HiC) loadBodyIndex(key string) (*Body, error) {
 			stdDev, _ := ReadFloat32(e)
 			percent95, _ := ReadFloat32(e)
 			binSize, _ := ReadInt(e)
+			// check binSize is zero problem .
 			blockBinCount, _ := ReadInt(e)
 			blockColumnCount, _ := ReadInt(e)
 			blockCount, _ := ReadInt(e)
@@ -155,10 +156,13 @@ func (e *HiC) loadBodyIndex(key string) (*Body, error) {
 				blockIndexes[int(blockID)] = BlockIndex{blockID, blockPosition, blockSize}
 			}
 
-			r := (e.Chr[b.Chr1Idx].Length)/binSize + 1
-			c := (e.Chr[b.Chr2Idx].Length)/binSize + 1
-			//fmt.Println(b.Chr1Idx, b.Chr2Idx, "rc", r, c)
-			b.Mats[i] = BlockMatrix{unit, resIdx, sumCounts, occupiedCellCount, stdDev, percent95, binSize, blockBinCount, blockColumnCount, blockCount, blockIndexes, make(map[int]*Block), make(map[int]time.Time), sync.Mutex{}, sync.Mutex{}, e, int(r), int(c), e.useBuffer}
+			// TODO check binSize is 0 ...
+			if binSize !== 0 {
+				r := (e.Chr[b.Chr1Idx].Length)/binSize + 1
+				c := (e.Chr[b.Chr2Idx].Length)/binSize + 1
+				//fmt.Println(b.Chr1Idx, b.Chr2Idx, "rc", r, c)
+				b.Mats[i] = BlockMatrix{unit, resIdx, sumCounts, occupiedCellCount, stdDev, percent95, binSize, blockBinCount, blockColumnCount, blockCount, blockIndexes, make(map[int]*Block), make(map[int]time.Time), sync.Mutex{}, sync.Mutex{}, e, int(r), int(c), e.useBuffer}
+			}
 			//Not suitable for parrel Mats accessing now.
 		}
 		e.bodyIndexesBuffer[key] = &bodyIndexBuffer{
