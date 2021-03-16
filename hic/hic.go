@@ -105,7 +105,6 @@ func (e *HiC) loadBodyIndex(key string) (*Body, error) {
 			}
 		}
 		e.bufferMux.Unlock()
-		//log.Println("done")
 	}
 	e.bufferMux.Lock()
 	body, ok := e.bodyIndexesBuffer[key]
@@ -119,61 +118,63 @@ func (e *HiC) loadBodyIndex(key string) (*Body, error) {
 	}
 	err := errors.New("init")
 	c2 := make(chan Body, 1)
+	e.mutex.Lock()
+	defer e.mutex.Unlock()
 	go func() {
 		b := Body{}
 		v, ok := e.Footer.Entry[key]
 		if !ok {
 			err = errors.New("key not found")
 			c2 <- b
-		}
-		e.mutex.Lock()
-		e.Seek(v.Position, 0)
-		b.Chr1Idx, _ = ReadInt(e)
-		b.Chr2Idx, _ = ReadInt(e)
-		b.NRes, _ = ReadInt(e)
-		b.Mats = make([]BlockMatrix, b.NRes)
-		if b.NRes == 0 {
-			err = errors.New("no data found")
-			c2 <- b
-		}
-		for i := int32(0); i < b.NRes; i++ {
-			unit, _ := ReadString(e)
-			resIdx, _ := ReadInt(e)
-			sumCounts, _ := ReadFloat32(e)
-			occupiedCellCount, _ := ReadFloat32(e)
-			stdDev, _ := ReadFloat32(e)
-			percent95, _ := ReadFloat32(e)
-			binSize, _ := ReadInt(e)
-			// check binSize is zero problem .
-			blockBinCount, _ := ReadInt(e)
-			blockColumnCount, _ := ReadInt(e)
-			blockCount, _ := ReadInt(e)
-			blockIndexes := make(map[int]BlockIndex)
-			for j := int32(0); j < blockCount; j++ {
-				blockID, _ := ReadInt(e)
-				blockPosition, _ := ReadLong(e)
-				blockSize, _ := ReadInt(e)
-				blockIndexes[int(blockID)] = BlockIndex{blockID, blockPosition, blockSize}
-			}
+		} else {
+			e.Seek(v.Position, 0)
+			b.Chr1Idx, _ = ReadInt(e)
+			b.Chr2Idx, _ = ReadInt(e)
+			b.NRes, _ = ReadInt(e)
+			b.Mats = make([]BlockMatrix, b.NRes)
+			if b.NRes == 0 {
+				err = errors.New("no data found")
+				c2 <- b
+			} else {
+				l0 := int32(len(e.Chr))
+				for i := int32(0); i < b.NRes; i++ {
+					unit, _ := ReadString(e)
+					resIdx, _ := ReadInt(e)
+					sumCounts, _ := ReadFloat32(e)
+					occupiedCellCount, _ := ReadFloat32(e)
+					stdDev, _ := ReadFloat32(e)
+					percent95, _ := ReadFloat32(e)
+					binSize, _ := ReadInt(e)
+					// check binSize is zero problem .
+					blockBinCount, _ := ReadInt(e)
+					blockColumnCount, _ := ReadInt(e)
+					blockCount, _ := ReadInt(e)
+					blockIndexes := make(map[int]BlockIndex)
+					for j := int32(0); j < blockCount; j++ {
+						blockID, _ := ReadInt(e)
+						blockPosition, _ := ReadLong(e)
+						blockSize, _ := ReadInt(e)
+						blockIndexes[int(blockID)] = BlockIndex{blockID, blockPosition, blockSize}
+					}
 
-			// TODO check binSize is 0 ...
-			l0 := int32(len(e.Chr))
-			if binSize != 0 && b.Chr1Idx < l0 && b.Chr2Idx < l0 {
-				r := (e.Chr[b.Chr1Idx].Length)/binSize + 1
-				c := (e.Chr[b.Chr2Idx].Length)/binSize + 1
-				//fmt.Println(b.Chr1Idx, b.Chr2Idx, "rc", r, c)
-				b.Mats[i] = BlockMatrix{unit, resIdx, sumCounts, occupiedCellCount, stdDev, percent95, binSize, blockBinCount, blockColumnCount, blockCount, blockIndexes, make(map[int]*Block), make(map[int]time.Time), sync.Mutex{}, sync.Mutex{}, e, int(r), int(c), e.useBuffer}
+					// TODO check binSize is 0 ...
+					if binSize != 0 && b.Chr1Idx < l0 && b.Chr2Idx < l0 {
+						r := (e.Chr[b.Chr1Idx].Length)/binSize + 1
+						c := (e.Chr[b.Chr2Idx].Length)/binSize + 1
+						//fmt.Println(b.Chr1Idx, b.Chr2Idx, "rc", r, c)
+						b.Mats[i] = BlockMatrix{unit, resIdx, sumCounts, occupiedCellCount, stdDev, percent95, binSize, blockBinCount, blockColumnCount, blockCount, blockIndexes, make(map[int]*Block), make(map[int]time.Time), sync.Mutex{}, sync.Mutex{}, e, int(r), int(c), e.useBuffer}
+					}
+					//Not suitable for parrel Mats accessing now.
+				}
+				e.bodyIndexesBuffer[key] = &bodyIndexBuffer{
+					&b,
+					1,
+					time.Now(),
+				}
+				err = nil
+				c2 <- b
 			}
-			//Not suitable for parrel Mats accessing now.
 		}
-		e.bodyIndexesBuffer[key] = &bodyIndexBuffer{
-			&b,
-			1,
-			time.Now(),
-		}
-		e.mutex.Unlock()
-		err = nil
-		c2 <- b
 	}()
 	b0 := <-c2
 	return &b0, err
