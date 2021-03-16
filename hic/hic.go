@@ -157,7 +157,7 @@ func (e *HiC) loadBodyIndex(key string) (*Body, error) {
 			}
 
 			// TODO check binSize is 0 ...
-			if binSize !== 0 {
+			if binSize != 0 {
 				r := (e.Chr[b.Chr1Idx].Length)/binSize + 1
 				c := (e.Chr[b.Chr2Idx].Length)/binSize + 1
 				//fmt.Println(b.Chr1Idx, b.Chr2Idx, "rc", r, c)
