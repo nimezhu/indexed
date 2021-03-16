@@ -15,8 +15,8 @@ import (
 )
 
 const (
-	MaxCells           = 16000000 //4000*4000
-	maxBlockBufferSize = 2
+	MaxCells           = 25000000 //5000*5000
+	maxBlockBufferSize = 1
 )
 
 /* BlockMatrix : implement mat64.Matrix interface
@@ -97,6 +97,9 @@ func (b *BlockMatrix) loadBlock(index int) bool {
 
 func (b *BlockMatrix) coordToBlockIndex(i int, j int) int {
 	blockBinCount := int(b.BlockBinCount)
+	if blockBinCount == 0 {
+		return -1
+	}
 	row := i / blockBinCount
 	col := j / blockBinCount
 	return row*int(b.BlockColumnCount) + col
@@ -104,7 +107,10 @@ func (b *BlockMatrix) coordToBlockIndex(i int, j int) int {
 
 func (b *BlockMatrix) coordsToBlockIndexes(i int, j int, r int, c int) []int {
 	blockBinCount := int(b.BlockBinCount)
-	//log.Println("blockBinCount", blockBinCount)
+	if blockBinCount == 0 {
+		a := make([]int, 0, 0)
+		return a
+	}
 	startrow := i / blockBinCount
 	startcol := j / blockBinCount
 	endrow := (i + r) / blockBinCount
@@ -145,6 +151,9 @@ func (b *BlockMatrix) loadBlocks(indexes []int) {
 }
 func (b *BlockMatrix) At(i int, j int) float64 {
 	block := b.coordToBlockIndex(i, j)
+	if block == -1 {
+		return math.NaN()
+	}
 	if !b.useBuffer && len(b.buffers) > 5 { //mininum TO be test
 		go func() {
 			log.Println("reset buffer")
@@ -157,7 +166,6 @@ func (b *BlockMatrix) At(i int, j int) float64 {
 		x := i - int(b.buffers[block].XOffset)
 		y := j - int(b.buffers[block].YOffset)
 		r, c := b.buffers[block].Dims()
-		//log.Println("xyrcb", x, y, r, c, b.buffers[block].At(x, y)) //TODO RM
 		if x >= 0 && x < r && y >= 0 && y < c {
 			return b.buffers[block].At(x, y)
 		}
