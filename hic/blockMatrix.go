@@ -121,6 +121,7 @@ func (b *BlockMatrix) coordsToBlockIndexes(i int, j int, r int, c int) []int {
 		endcol = int(b.BlockColumnCount)
 	} //TODO Fix endrow > blocks
 	//fmt.Println(startrow, endrow, startcol, endcol, b.BlockColumnCount)
+	// TODO Debug if Array Too Large
 	arr := make([]int, 0, (endrow-startrow+1)*(endcol-startcol+1))
 	for i := startrow; i <= endrow; i++ {
 		for j := startcol; j <= endcol; j++ {

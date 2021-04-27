@@ -75,7 +75,15 @@ func getBlock(e MutexReadSeeker, blockPosition int64, blockSize int32) *Block {
 		b0 := bytes.NewReader(b)
 		c, err := zlib.NewReader(b0)
 		if err != nil {
-			chan2 <- &Block{NPositions: -1} //error loading block
+			log.Println("Warning, not able to , read block data") //TODO Fix Overflow for some hic data
+			log.Println(err) //TODO Fix Overflow for some hic data
+			m0 := mat64.NewDense(0,0, make([]float64, 0))
+			chan2 <- &Block{
+				int32(0),
+				int32(0),
+				int32(0),
+				m0
+			}                       //error loading block
 			return
 		}
 		nPositions, _ := ReadInt(c)
@@ -178,7 +186,6 @@ func getBlock(e MutexReadSeeker, blockPosition int64, blockSize int32) *Block {
 				maxX = int(i0)
 			}
 		} else {
-			log.Println("-1,-1 matrix?")
 			maxX = -1
 			maxY = -1
 		}
