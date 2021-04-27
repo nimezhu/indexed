@@ -76,14 +76,14 @@ func getBlock(e MutexReadSeeker, blockPosition int64, blockSize int32) *Block {
 		c, err := zlib.NewReader(b0)
 		if err != nil {
 			log.Println("Warning, not able to , read block data") //TODO Fix Overflow for some hic data
-			log.Println(err) //TODO Fix Overflow for some hic data
-			m0 := mat64.NewDense(0,0, make([]float64, 0))
+			log.Println(err)                                      //TODO Fix Overflow for some hic data
+			m0 := mat64.NewDense(0, 0, make([]float64, 0))
 			chan2 <- &Block{
 				int32(0),
 				int32(0),
 				int32(0),
-				m0
-			}                       //error loading block
+				m0,
+			} //error loading block
 			return
 		}
 		nPositions, _ := ReadInt(c)
