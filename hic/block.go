@@ -3,6 +3,7 @@ package hic
 import (
 	"bytes"
 	"compress/zlib"
+	"errors"
 	"fmt"
 	"log"
 	"math"
@@ -59,35 +60,25 @@ func checkErr(err error) {
 		log.Println(err)
 	}
 }
-func getBlock(e MutexReadSeeker, blockPosition int64, blockSize int32) *Block {
+func getBlock(e MutexReadSeeker, blockPosition int64, blockSize int32) (*Block, error) {
 	chan2 := make(chan *Block, 1)
-	//log.Println("getBlock", blockPosition)
 	go func() {
 		e.Lock()
 		position, _ := e.Seek(0, 1)
 		e.Seek(blockPosition, 0)
-		defer e.Seek(position, 0)
 		defer e.Unlock()
+		defer e.Seek(position, 0)
 		b := make([]byte, blockSize)
-		//l, _ := e.Read(b)
 		e.Read(b)
-		//fmt.Println(l, "=", len(b)) //assert format
 		b0 := bytes.NewReader(b)
 		c, err := zlib.NewReader(b0)
 		if err != nil {
-			log.Println("Warning, not able to , read block data") //TODO Fix Overflow for some hic data
-			log.Println(err)                                      //TODO Fix Overflow for some hic data
-			m0 := mat64.NewDense(0, 0, make([]float64, 0))
-			chan2 <- &Block{
-				int32(0),
-				int32(0),
-				int32(0),
-				m0,
-			} //error loading block
+			b = nil
+			chan2 <- nil
 			return
 		}
 		nPositions, _ := ReadInt(c)
-		Pos := make([]Position, nPositions) //？？？
+		Pos := make([]Position, nPositions)
 		binXOffset, _ := ReadInt(c)
 		binYOffset, _ := ReadInt(c)
 		maxY := 0
@@ -101,7 +92,8 @@ func getBlock(e MutexReadSeeker, blockPosition int64, blockSize int32) *Block {
 		n := int(nPositions)
 		//log.Println("nPositions", nPositions) //TODO RM
 		if nPositions > 0 {
-			if t == 1 { //Sparse or Triangle Sparse
+			if t == 1 {
+				//Sparse or Triangle Sparse
 				//log.Println("reading sparse") //TODO RM
 				rowCount, _ := ReadShort(c)
 				//log.Println("rowCount ?", rowCount) //TODO RM
@@ -121,24 +113,8 @@ func getBlock(e MutexReadSeeker, blockPosition int64, blockSize int32) *Block {
 							a1, err := ReadFloat32(c)
 							checkErr(err)
 							counts = float32(a1)
-							/*
-								if counts < 0.000000001 {
-									log.Println("warning fix", a1)
-									_, err := ReadShort(c)
-									checkErr(err)
-									counts = float32(math.NaN())
-								}
-							*/
 
 						}
-						//log.Println(index)
-						//log.Println(i0, j0, X, Y, counts) //TODO RM:
-						/*
-							if counts == 0 {
-								log.Panic(i0, j0, X, Y, counts)
-							}
-						*/
-
 						if index >= n {
 							//log.Println(i0, j0, index, ">", nPositions) //TODO Fix Overflow for some hic data
 							Pos = append(Pos, Position{X, Y, counts})
@@ -207,7 +183,6 @@ func getBlock(e MutexReadSeeker, blockPosition int64, blockSize int32) *Block {
 		}
 
 		if index > n {
-			//log.Println("m at 0,0 warning inside", m.At(0, 0)) //TODO RM
 			chan2 <- &Block{int32(index), binXOffset, binYOffset, m}
 		} else {
 			chan2 <- &Block{nPositions, binXOffset, binYOffset, m}
@@ -216,5 +191,9 @@ func getBlock(e MutexReadSeeker, blockPosition int64, blockSize int32) *Block {
 	}()
 	b0 := <-chan2
 	close(chan2)
-	return b0
+	if b0 == nil {
+		return nil, errors.New("not found matrix")
+	} else {
+		return b0, nil
+	}
 }

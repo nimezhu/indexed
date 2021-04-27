@@ -84,9 +84,13 @@ func (b *BlockMatrix) loadBlock(index int) bool {
 	signal := true
 	if !b.isBlockLoaded(index) {
 		b.mux.Lock()
-		c := getBlock(b.reader, v.Position, v.Size)
-		if c.NPositions >= 0 {
-			b.buffers[index] = c
+		c, err1 := getBlock(b.reader, v.Position, v.Size)
+		if err1 == nil {
+			if c.NPositions >= 0 {
+				b.buffers[index] = c
+			} else {
+				signal = false
+			}
 		} else {
 			signal = false
 		}
@@ -119,18 +123,21 @@ func (b *BlockMatrix) coordsToBlockIndexes(i int, j int, r int, c int) []int {
 	//log.Println("startcol,endcol", startcol, endcol)
 	if endcol > int(b.BlockColumnCount) {
 		endcol = int(b.BlockColumnCount)
-	} //TODO Fix endrow > blocks
+	}
+	//TODO Fix endrow > blocks
 	//fmt.Println(startrow, endrow, startcol, endcol, b.BlockColumnCount)
 	// TODO Debug if Array Too Large
 	arr := make([]int, 0, (endrow-startrow+1)*(endcol-startcol+1))
 	for i := startrow; i <= endrow; i++ {
 		for j := startcol; j <= endcol; j++ {
-			idx := i*int(b.BlockColumnCount) + j //TODO DEBUG??? sort chromosome ???
+			idx := i*int(b.BlockColumnCount) + j
 			_, ok := b.BlockIndexes[idx]
-			if !ok {
-				idx = max(i, j)*int(b.BlockColumnCount) + min(i, j) //if symetric
-			}
-			_, ok = b.BlockIndexes[idx]
+			/*
+					if !ok {
+						idx = max(i, j)*int(b.BlockColumnCount) + min(i, j) //if symetric
+					}
+				_, ok = b.BlockIndexes[idx]
+			*/
 			if ok {
 				arr = append(arr, idx)
 			} else {
@@ -264,7 +271,6 @@ func (b *BlockMatrix) View(i int, j int, r int, c int) mat64.Matrix {
 	}
 	if b.useBuffer && len(b.buffers) > maxBlockBufferSize {
 		go func() {
-			//log.Println("clean buffer")
 			b.cleanBuffer() //TODO with Syntax.
 		}()
 	}
@@ -272,50 +278,54 @@ func (b *BlockMatrix) View(i int, j int, r int, c int) mat64.Matrix {
 	blocks := b.coordsToBlockIndexes(i, j, r, c)
 	//log.Println(blocks)
 	if b.useBuffer {
-		//log.Println("using buffer")
+		log.Println("using buffer")
 		b.bufferMux.Lock() //TODO ADD Buffer Lock Instead
 		b.loadBlocks(blocks)
 		for _, index := range blocks {
 			v, ok := b.buffers[index] //TODO fix write same time
 			if !ok {
 
-			}
-			b.lastUsedDate[index] = time.Now()
-			vr, vc := v.Dims()
-			xoffset := int(v.XOffset)
-			yoffset := int(v.YOffset)
-			for x := max(xoffset, i); x < min(xoffset+vr, i+r); x++ {
-				for y := max(yoffset, j); y < min(yoffset+vc, j+c); y++ {
-					if math.Abs(mat.At(x-i, y-j)) < math.Abs(v.At(x-xoffset, y-yoffset)) { //TODO override
-						mat.Set(x-i, y-j, v.At(x-xoffset, y-yoffset))
+			} else {
+				b.lastUsedDate[index] = time.Now()
+				vr, vc := v.Dims()
+				xoffset := int(v.XOffset)
+				yoffset := int(v.YOffset)
+				for x := max(xoffset, i); x < min(xoffset+vr, i+r); x++ {
+					for y := max(yoffset, j); y < min(yoffset+vc, j+c); y++ {
+						if math.Abs(mat.At(x-i, y-j)) < math.Abs(v.At(x-xoffset, y-yoffset)) { //TODO override
+							mat.Set(x-i, y-j, v.At(x-xoffset, y-yoffset))
+						}
 					}
 				}
 			}
 		}
 		b.bufferMux.Unlock()
 	} else {
-		b.mux.Lock()
 		//log.Println("not using buffer")
+		// missing := false
 		for _, index := range blocks {
 			v0, ok := b.BlockIndexes[index]
 			if !ok {
-				return nil
-			}
-			v := getBlock(b.reader, v0.Position, v0.Size)
-			vr, vc := v.Dims()
-			xoffset := int(v.XOffset)
-			yoffset := int(v.YOffset)
-			for x := max(xoffset, i); x < min(xoffset+vr, i+r); x++ {
-				for y := max(yoffset, j); y < min(yoffset+vc, j+c); y++ {
-					if math.Abs(mat.At(x-i, y-j)) < math.Abs(v.At(x-xoffset, y-yoffset)) { //TODO override
-						mat.Set(x-i, y-j, v.At(x-xoffset, y-yoffset))
+			} else {
+				v, err1 := getBlock(b.reader, v0.Position, v0.Size)
+				if err1 == nil {
+					vr, vc := v.Dims()
+					xoffset := int(v.XOffset)
+					yoffset := int(v.YOffset)
+					for x := max(xoffset, i); x < min(xoffset+vr, i+r); x++ {
+						for y := max(yoffset, j); y < min(yoffset+vc, j+c); y++ {
+							if math.Abs(mat.At(x-i, y-j)) < math.Abs(v.At(x-xoffset, y-yoffset)) { //TODO override
+								mat.Set(x-i, y-j, v.At(x-xoffset, y-yoffset))
+							}
+						}
 					}
+				} else {
 				}
+
 			}
 		}
-		b.mux.Unlock()
 	}
-
+	// TODO ...
 	return mat
 }
 
